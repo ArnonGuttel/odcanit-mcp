@@ -1,33 +1,18 @@
-// MVP read-only tools for Odcanit MCP
+import { z } from 'zod';
+
+// MVP read-only tool definitions for Odcanit MCP
 // Backed by the read-only export views (vwExportToOuterSystems_*)
 
-export const tools = [
-  {
-    name: 'get_case_details',
-    description: 'Get details for a specific case from vwExportToOuterSystems_Files (read-only)',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        tikNumber: {
-          type: 'string',
-          description: 'Case number (TikNumber)'
-        }
-      },
-      required: ['tikNumber']
-    }
+export const getCaseDetailsTool = {
+  description: 'Get details for a specific case from vwExportToOuterSystems_Files (read-only)',
+  inputSchema: {
+    tikNumber: z.string().describe('Case number (TikNumber)'),
   },
-  {
-    name: 'get_client_details',
-    description: 'Get details for a specific client from vwExportToOuterSystems_Clients (read-only)',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        visualID: {
-          type: 'string',
-          description: 'Client visual ID (VisualID)'
-        }
-      },
-      required: ['visualID']
-    }
-  }
-];
+};
+
+export const getClientDetailsTool = {
+  description: 'Get details for a specific client from vwExportToOuterSystems_Clients (read-only)',
+  inputSchema: {
+    visualID: z.string().describe('Client visual ID (VisualID)'),
+  },
+};
