@@ -19,11 +19,31 @@ This server runs locally as a subprocess that Claude launches itself (via the [s
 
 ## Getting Started
 
+This setup is meant to be done once, by whoever administers Odcanit / SQL Server access at your firm (e.g. IT) — not by each individual user of Claude.
+
 ### Prerequisites
 
 - Node.js 18+
 - Network access to your firm's Odcanit SQL Server instance
 - A SQL Server login with read access to the `vwExportToOuterSystems_*` views
+
+### Windows: automated setup
+
+Most Odcanit installs run on Windows. If that's you, run the setup script instead of the manual steps below — it installs dependencies, builds the server, prompts for your SQL Server details, tests the connection, and registers the server with Claude Desktop automatically:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\setup-windows.ps1
+```
+
+Restart Claude Desktop when it finishes. The steps below are what that script automates, and are still the path for macOS/Linux or Claude Code.
+
+To remove the server from Claude Desktop later (e.g. to reconfigure it against a different database), run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\setup-windows.ps1 -Uninstall
+```
+
+This only removes the `odcanit` entry from Claude Desktop's config — it doesn't touch your SQL Server or delete the repo.
 
 ### Installation
 
