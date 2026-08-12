@@ -11,7 +11,19 @@ MVP — read-only, two tools:
 - `get_case_details` — look up a case by number (`vwExportToOuterSystems_Files`)
 - `get_client_details` — look up a client by visual ID (`vwExportToOuterSystems_Clients`)
 
+## How it works
+
+Odcanit has no REST API — external systems connect directly to its SQL Server database and query a fixed set of read-only views (for exporting data) or call stored procedures (for writing data). This server connects to *your* Odcanit SQL Server instance directly, so it must run somewhere with network access to it (e.g. inside your office network, or over VPN).
+
+This server runs locally as a subprocess that Claude launches itself (via the [stdio transport](https://modelcontextprotocol.io/docs/concepts/transports)) — no data or credentials are sent anywhere outside your machine/network.
+
 ## Getting Started
+
+### Prerequisites
+
+- Node.js 18+
+- Network access to your firm's Odcanit SQL Server instance
+- A SQL Server login with read access to the `vwExportToOuterSystems_*` views
 
 ### Installation
 
@@ -22,13 +34,47 @@ npm run build
 
 ### Configuration
 
-Odcanit is accessed via a direct SQL Server connection (no REST API). Connection/auth details are not yet wired up — TBD.
+Set your Odcanit SQL Server connection details as environment variables:
+
+```bash
+export ODCANIT_DB_HOST="your-sql-server-host"
+export ODCANIT_DB_NAME="your-database-name"
+export ODCANIT_DB_USER="your-username"
+export ODCANIT_DB_PASSWORD="your-password"
+# Optional (defaults shown):
+export ODCANIT_DB_PORT="1433"
+export ODCANIT_DB_ENCRYPT="true"
+export ODCANIT_DB_TRUST_CERT="false"
+```
 
 ### Usage
 
 ```bash
 npm start
 ```
+
+### Connecting to Claude
+
+Add an entry to your Claude Desktop or Claude Code MCP config (e.g. `claude_desktop_config.json` or `.mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "odcanit": {
+      "command": "node",
+      "args": ["/absolute/path/to/odcanit-mcp/dist/index.js"],
+      "env": {
+        "ODCANIT_DB_HOST": "your-sql-server-host",
+        "ODCANIT_DB_NAME": "your-database-name",
+        "ODCANIT_DB_USER": "your-username",
+        "ODCANIT_DB_PASSWORD": "your-password"
+      }
+    }
+  }
+}
+```
+
+Restart Claude after saving the config. It will launch the server locally and connect to your Odcanit database using the credentials above.
 
 ## Development
 

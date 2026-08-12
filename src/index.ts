@@ -3,14 +3,22 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
-  Tool,
 } from '@modelcontextprotocol/sdk/types.js';
 import { tools } from './tools.js';
+import { queryOdcanit } from './db.js';
+import { Case, Client } from './types.js';
 
-const server = new Server({
-  name: 'odcanit-mcp',
-  version: '0.1.0',
-});
+const server = new Server(
+  {
+    name: 'odcanit-mcp',
+    version: '0.1.0',
+  },
+  {
+    capabilities: {
+      tools: {},
+    },
+  }
+);
 
 // List available tools
 server.setRequestHandler(ListToolsRequestSchema, async () => {
@@ -19,18 +27,34 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 
 // Handle tool calls
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args } = request;
+  const { name, arguments: args } = request.params;
 
   try {
-    // Tool implementations would go here
-    // For now, return a placeholder response
+    if (name === 'get_case_details') {
+      const tikNumber = String(args?.tikNumber ?? '');
+      const rows = await queryOdcanit<Case>(
+        'SELECT * FROM vwExportToOuterSystems_Files WHERE TikNumber = @tikNumber',
+        { tikNumber }
+      );
+      return {
+        content: [{ type: 'text', text: JSON.stringify(rows[0] ?? null) }],
+      };
+    }
+
+    if (name === 'get_client_details') {
+      const visualID = String(args?.visualID ?? '');
+      const rows = await queryOdcanit<Client>(
+        'SELECT * FROM vwExportToOuterSystems_Clients WHERE VisualID = @visualID',
+        { visualID }
+      );
+      return {
+        content: [{ type: 'text', text: JSON.stringify(rows[0] ?? null) }],
+      };
+    }
+
     return {
-      content: [
-        {
-          type: 'text',
-          text: `Tool '${name}' called with arguments: ${JSON.stringify(args)}`,
-        },
-      ],
+      content: [{ type: 'text', text: `Unknown tool: ${name}` }],
+      isError: true,
     };
   } catch (error) {
     return {
