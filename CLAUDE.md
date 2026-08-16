@@ -8,6 +8,10 @@ An MCP (Model Context Protocol) server that exposes read-only data from Odcanit 
 
 Status: MVP, read-only, two tools only.
 
+## Workflow
+
+Never push directly to `main`. For any change, check out a new branch, commit there, push the branch, and open a PR into `main` — even for small doc/config edits.
+
 ## Commands
 
 ```bash
