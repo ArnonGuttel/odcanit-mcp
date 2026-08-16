@@ -15,17 +15,29 @@ export async function getPool(): Promise<sql.ConnectionPool> {
     return pool;
   }
 
+  const instanceName = process.env.ODCANIT_DB_INSTANCE;
+  if (instanceName && process.env.ODCANIT_DB_PORT) {
+    throw new Error(
+      'ODCANIT_DB_INSTANCE and ODCANIT_DB_PORT are mutually exclusive: named SQL Server instances ' +
+        'resolve their TCP port dynamically via the SQL Server Browser service (UDP 1434). Set one or the other.'
+    );
+  }
+
   const config: sql.config = {
     server: requireEnv('ODCANIT_DB_HOST'),
     database: requireEnv('ODCANIT_DB_NAME'),
     user: requireEnv('ODCANIT_DB_USER'),
     password: requireEnv('ODCANIT_DB_PASSWORD'),
-    port: process.env.ODCANIT_DB_PORT ? Number(process.env.ODCANIT_DB_PORT) : 1433,
     options: {
       encrypt: process.env.ODCANIT_DB_ENCRYPT !== 'false',
       trustServerCertificate: process.env.ODCANIT_DB_TRUST_CERT === 'true',
+      ...(instanceName ? { instanceName } : {}),
     },
   };
+
+  if (!instanceName) {
+    config.port = process.env.ODCANIT_DB_PORT ? Number(process.env.ODCANIT_DB_PORT) : 1433;
+  }
 
   pool = await new sql.ConnectionPool(config).connect();
   return pool;
