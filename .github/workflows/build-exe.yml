@@ -37,6 +37,7 @@ jobs:
           cp scripts/setup-windows.ps1 release/
           cp scripts/Setup.bat release/
           cp scripts/Uninstall.bat release/
+          cp scripts/mcp.exe.json release/.mcp.json
           (cd release && zip -r ../odcanit-mcp-windows.zip .)
 
       - name: Publish release
