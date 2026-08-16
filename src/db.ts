@@ -10,6 +10,16 @@ function requireEnv(name: string): string {
   return value;
 }
 
+export function writesEnabled(): boolean {
+  return process.env.ODCANIT_DB_ENABLE_WRITES === 'true';
+}
+
+export function assertWritesEnabled(): void {
+  if (!writesEnabled()) {
+    throw new Error('Writes are disabled. Set ODCANIT_DB_ENABLE_WRITES=true to enable write tools.');
+  }
+}
+
 export async function getPool(): Promise<sql.ConnectionPool> {
   if (pool) {
     return pool;
