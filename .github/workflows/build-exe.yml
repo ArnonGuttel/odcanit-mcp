@@ -1,0 +1,44 @@
+name: Build Windows binary
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm ci
+      - run: npm run build:exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: odcanit-mcp-windows
+          path: dist-bin/odcanit-mcp.exe
+
+      - name: Package release zip
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          mkdir -p release/dist-bin release/scripts
+          cp dist-bin/odcanit-mcp.exe release/dist-bin/
+          cp scripts/setup-windows.ps1 release/scripts/
+          (cd release && zip -r ../odcanit-mcp-windows.zip .)
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: odcanit-mcp-windows.zip

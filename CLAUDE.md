@@ -46,6 +46,8 @@ It expects `dist-bin\odcanit-mcp.exe` next to `scripts\` (the layout of a releas
 
 The result is unsigned, so Windows SmartScreen will flag it as being from an unrecognized publisher on first run — expected, not a build defect. `.cache/`, `build/`, and `dist-bin/` are all gitignored build output, not committed.
 
+`.github/workflows/build-exe.yml` runs this pipeline in CI on every push/PR to `main` (as a build-only sanity check, uploaded as a workflow artifact) and, when a `v*` tag is pushed, additionally zips `dist-bin/odcanit-mcp.exe` together with `scripts/setup-windows.ps1` (preserving that relative layout, since `setup-windows.ps1` expects the `.exe` at `..\dist-bin\odcanit-mcp.exe`) and publishes it as a GitHub Release via `softprops/action-gh-release` — this is what end users download per the README's Windows setup instructions.
+
 ## Architecture
 
 The whole server is four small files in `src/`:
