@@ -29,15 +29,13 @@ You'll need:
 
 ### Windows, no Node.js required
 
-Most Odcanit installs run on Windows. Download the latest release zip from the [Releases page](https://github.com/ArnonGuttel/odcanit-mcp/releases) and extract it — it's a single flat folder (`odcanit-mcp.exe`, `Setup.bat`, `Uninstall.bat`, `.mcp.json`), nothing to install.
+Most Odcanit installs run on Windows. Download the latest release zip from the [Releases page](https://github.com/ArnonGuttel/odcanit-mcp/releases) and extract it — it's a single flat folder (`odcanit-mcp.exe`, `Setup.bat`, `Uninstall.bat`), nothing to install.
 
-**Claude Desktop:** double-click `Setup.bat`. It prompts for your SQL Server details, tests the connection, and registers the server in Claude Desktop's config, leaving a console window open to show progress — press any key to close it once it says "Done". (`Setup.bat` is a double-click wrapper around `powershell -ExecutionPolicy Bypass -File setup-windows.ps1`, if you'd rather run it from a terminal.) Restart Claude Desktop when it finishes. To reconfigure against a different database later, double-click `Uninstall.bat` first — it only removes the `odcanit` entry from Claude Desktop's config.
-
-**Claude Code:** edit the `.mcp.json` in the extracted folder — it already points at the `odcanit-mcp.exe` next to it — and fill in your SQL Server details in its `env` block. Then run `claude` from inside that folder and approve the project when prompted.
+Double-click `Setup.bat`. It prompts for your SQL Server details, tests the connection, and registers the server in Claude Desktop's config, leaving a console window open to show progress — press any key to close it once it says "Done". (`Setup.bat` is a double-click wrapper around `powershell -ExecutionPolicy Bypass -File setup-windows.ps1`, if you'd rather run it from a terminal.) Restart Claude Desktop when it finishes. To reconfigure against a different database later, double-click `Uninstall.bat` first — it only removes the `odcanit` entry from Claude Desktop's config.
 
 Neither `odcanit-mcp.exe` nor the setup script is code-signed, so Windows SmartScreen will flag them as being from an unrecognized publisher the first time you run either — click "More info", then "Run anyway".
 
-The SQL Server password you enter ends up stored in plain text, either way — in Claude Desktop's `%APPDATA%\Claude\claude_desktop_config.json`, or in the `.mcp.json` you edited. Treat that file like a password, and only run this setup on a machine you trust.
+The SQL Server password you enter is saved in plain text in Claude Desktop's own config file (`%APPDATA%\Claude\claude_desktop_config.json`) — the same as any other MCP server's credentials. Treat that file with the same care as a password, and only run this setup on a machine you trust.
 
 ### From source (macOS, Linux, or Claude Code on Windows)
 
