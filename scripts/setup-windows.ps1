@@ -1,12 +1,17 @@
 #Requires -Version 5.1
 <#
-  Interactive setup for odcanit-mcp on Windows.
+  Interactive setup for odcanit-mcp on Windows. No Node.js or other
+  dependencies required -- odcanit-mcp.exe is a standalone binary.
   Run this once per machine that will host the MCP server for a firm.
-  It installs dependencies, collects your Odcanit SQL Server details,
-  tests the connection, and registers the server in Claude Desktop's config.
+  It collects your Odcanit SQL Server details, tests the connection using
+  the bundled odcanit-mcp.exe, and registers it in Claude Desktop's config.
+
+  Expects odcanit-mcp.exe to sit in a dist-bin\ folder next to this script's
+  parent directory (i.e. dist-bin\odcanit-mcp.exe alongside scripts\) --
+  that's the layout of the release download this script ships in.
 
   Pass -Uninstall to remove the 'odcanit' entry from Claude Desktop's config
-  instead (skips the Node/npm/DB steps entirely):
+  instead (skips the DB steps entirely):
     powershell -ExecutionPolicy Bypass -File scripts\setup-windows.ps1 -Uninstall
 #>
 
@@ -89,35 +94,15 @@ if ($Uninstall) {
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 
-# 1. Check Node.js
-Write-Step "Checking Node.js"
-$nodeVersion = $null
-try {
-    $nodeVersion = (node --version) 2>$null
-} catch {
-    Fail "Node.js was not found. Install Node.js 18 or newer from https://nodejs.org and re-run this script."
+# 1. Locate the standalone server binary
+Write-Step "Locating odcanit-mcp.exe"
+$exePath = Join-Path $repoRoot "dist-bin\odcanit-mcp.exe"
+if (-not (Test-Path $exePath)) {
+    Fail "odcanit-mcp.exe not found at $exePath. Download the latest release zip (which includes dist-bin\odcanit-mcp.exe) and run this script from within it."
 }
-$major = [int]($nodeVersion.TrimStart('v').Split('.')[0])
-if ($major -lt 18) {
-    Fail "Node.js $nodeVersion found, but 18+ is required. Install a newer version from https://nodejs.org."
-}
-Write-Host "Found Node.js $nodeVersion"
+Write-Host "Found $exePath"
 
-# 2. Install and build
-Write-Step "Installing dependencies"
-Push-Location $repoRoot
-try {
-    npm install
-    if ($LASTEXITCODE -ne 0) { Fail "npm install failed." }
-
-    Write-Step "Building the server"
-    npm run build
-    if ($LASTEXITCODE -ne 0) { Fail "npm run build failed." }
-} finally {
-    Pop-Location
-}
-
-# 3. Collect Odcanit SQL Server connection details
+# 2. Collect Odcanit SQL Server connection details
 Write-Step "Odcanit SQL Server connection details"
 Write-Host "Get these from whoever administers your Odcanit / SQL Server (usually your IT contact)."
 
@@ -154,16 +139,15 @@ if ($dbInstance) {
     $env:ODCANIT_DB_PORT = $dbPort
 }
 
-# 4. Test the connection
+# 3. Test the connection
 Write-Step "Testing the connection"
-$testScript = Join-Path $repoRoot "scripts\test-connection.mjs"
-node $testScript
+& $exePath --test-connection
 if ($LASTEXITCODE -ne 0) {
     Fail "Could not connect to the database with the details provided. Double-check them and re-run this script."
 }
 Write-Host "Connection succeeded."
 
-# 5. Write Claude Desktop config
+# 4. Write Claude Desktop config
 Write-Step "Registering the server with Claude Desktop"
 $configDir = Join-Path $env:APPDATA "Claude"
 $configPath = Join-Path $configDir "claude_desktop_config.json"
@@ -188,7 +172,6 @@ if (-not ($config.PSObject.Properties.Name -contains 'mcpServers')) {
     $config | Add-Member -MemberType NoteProperty -Name 'mcpServers' -Value (New-Object PSObject)
 }
 
-$indexPath = Join-Path $repoRoot "dist\index.js"
 $envEntry = [PSCustomObject]@{
     ODCANIT_DB_HOST     = $dbHost
     ODCANIT_DB_NAME     = $dbName
@@ -202,8 +185,8 @@ if ($dbInstance) {
 }
 
 $odcanitEntry = [PSCustomObject]@{
-    command = "node"
-    args    = @($indexPath)
+    command = $exePath
+    args    = @()
     env     = $envEntry
 }
 

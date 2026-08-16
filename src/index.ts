@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { getCaseDetailsTool, getClientDetailsTool } from './tools.js';
-import { queryOdcanit } from './db.js';
+import { getPool, queryOdcanit } from './db.js';
 import { Case, Client } from './types.js';
 
 const server = new McpServer({
@@ -29,7 +29,24 @@ server.registerTool('get_client_details', getClientDetailsTool, async ({ visualI
   };
 });
 
+async function testConnection() {
+  try {
+    const pool = await getPool();
+    await pool.request().query('SELECT 1');
+    console.log('OK');
+    process.exit(0);
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  }
+}
+
 async function main() {
+  if (process.argv.includes('--test-connection')) {
+    await testConnection();
+    return;
+  }
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error('Odcanit MCP server running on stdio');
