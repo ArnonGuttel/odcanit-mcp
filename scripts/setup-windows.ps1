@@ -122,6 +122,7 @@ Write-Step "Odcanit SQL Server connection details"
 Write-Host "Get these from whoever administers your Odcanit / SQL Server (usually your IT contact)."
 
 $dbHost = Read-NonEmpty "SQL Server host"
+$dbInstance = (Read-Host "Named instance (press Enter to skip, e.g. 'odcanit' if your host is written as HOST\odcanit)").Trim()
 $dbName = Read-NonEmpty "Database name"
 $dbUser = Read-NonEmpty "Username"
 
@@ -135,13 +136,23 @@ do {
     }
 } while ([string]::IsNullOrWhiteSpace($dbPassword))
 
-$dbPort = Read-Port "Port" "1433"
+$dbPort = $null
+if ([string]::IsNullOrWhiteSpace($dbInstance)) {
+    $dbPort = Read-Port "Port" "1433"
+} else {
+    Write-Host "Named instance set -- skipping port (resolved dynamically via SQL Server Browser, UDP 1434)."
+}
 
 $env:ODCANIT_DB_HOST = $dbHost
 $env:ODCANIT_DB_NAME = $dbName
 $env:ODCANIT_DB_USER = $dbUser
 $env:ODCANIT_DB_PASSWORD = $dbPassword
-$env:ODCANIT_DB_PORT = $dbPort
+if ($dbInstance) {
+    $env:ODCANIT_DB_INSTANCE = $dbInstance
+    $env:ODCANIT_DB_PORT = $null
+} else {
+    $env:ODCANIT_DB_PORT = $dbPort
+}
 
 # 4. Test the connection
 Write-Step "Testing the connection"
@@ -178,16 +189,22 @@ if (-not ($config.PSObject.Properties.Name -contains 'mcpServers')) {
 }
 
 $indexPath = Join-Path $repoRoot "dist\index.js"
+$envEntry = [PSCustomObject]@{
+    ODCANIT_DB_HOST     = $dbHost
+    ODCANIT_DB_NAME     = $dbName
+    ODCANIT_DB_USER     = $dbUser
+    ODCANIT_DB_PASSWORD = $dbPassword
+}
+if ($dbInstance) {
+    $envEntry | Add-Member -MemberType NoteProperty -Name 'ODCANIT_DB_INSTANCE' -Value $dbInstance
+} else {
+    $envEntry | Add-Member -MemberType NoteProperty -Name 'ODCANIT_DB_PORT' -Value $dbPort
+}
+
 $odcanitEntry = [PSCustomObject]@{
     command = "node"
     args    = @($indexPath)
-    env     = [PSCustomObject]@{
-        ODCANIT_DB_HOST     = $dbHost
-        ODCANIT_DB_NAME     = $dbName
-        ODCANIT_DB_USER     = $dbUser
-        ODCANIT_DB_PASSWORD = $dbPassword
-        ODCANIT_DB_PORT     = $dbPort
-    }
+    env     = $envEntry
 }
 
 if ($config.mcpServers.PSObject.Properties.Name -contains 'odcanit') {

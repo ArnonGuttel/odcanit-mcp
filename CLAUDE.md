@@ -51,5 +51,6 @@ All DB connection config comes from environment variables, read via `requireEnv(
 
 - `ODCANIT_DB_HOST`, `ODCANIT_DB_NAME`, `ODCANIT_DB_USER`, `ODCANIT_DB_PASSWORD` — required
 - `ODCANIT_DB_PORT` (default `1433`), `ODCANIT_DB_ENCRYPT` (default `true`), `ODCANIT_DB_TRUST_CERT` (default `false`) — optional
+- `ODCANIT_DB_INSTANCE` — optional, for named SQL Server instances (host written as `HOST\instance`). Mutually exclusive with `ODCANIT_DB_PORT`: `db.ts` throws if both are set, since a named instance's TCP port is resolved dynamically via the SQL Server Browser service (UDP 1434) rather than being fixed.
 
 When running under Claude Desktop/Code, these are set in the MCP server config's `env` block (see README for the `mcpServers` JSON shape), not a `.env` file loaded by the server itself.

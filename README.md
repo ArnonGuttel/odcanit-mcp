@@ -65,6 +65,11 @@ export ODCANIT_DB_PASSWORD="your-password"
 export ODCANIT_DB_PORT="1433"
 export ODCANIT_DB_ENCRYPT="true"
 export ODCANIT_DB_TRUST_CERT="false"
+# If your server is a named instance (e.g. written as HOST\odcanit), set the
+# instance name instead of a port -- the port is resolved dynamically via the
+# SQL Server Browser service (UDP 1434), so ODCANIT_DB_INSTANCE and
+# ODCANIT_DB_PORT are mutually exclusive:
+export ODCANIT_DB_INSTANCE="odcanit"
 ```
 
 ### Usage
