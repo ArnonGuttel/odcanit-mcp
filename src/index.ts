@@ -34,6 +34,18 @@ async function checkConnection() {
   await pool.request().query('SELECT 1');
 }
 
+function waitForKeyPress(): Promise<void> {
+  return new Promise((resolve) => {
+    process.stdin.setRawMode?.(true);
+    process.stdin.resume();
+    process.stdin.once('data', () => {
+      process.stdin.setRawMode?.(false);
+      process.stdin.pause();
+      resolve();
+    });
+  });
+}
+
 async function main() {
   if (process.argv.includes('--test-connection')) {
     try {
@@ -53,6 +65,10 @@ async function main() {
       'Failed to connect to the Odcanit database:',
       error instanceof Error ? error.message : String(error)
     );
+    if (process.stdin.isTTY) {
+      console.error('Press any key to exit...');
+      await waitForKeyPress();
+    }
     process.exit(1);
   }
 
