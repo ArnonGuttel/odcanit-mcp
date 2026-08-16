@@ -6,13 +6,19 @@
   It collects your Odcanit SQL Server details, tests the connection using
   the bundled odcanit-mcp.exe, and registers it in Claude Desktop's config.
 
-  Expects odcanit-mcp.exe to sit in a dist-bin\ folder next to this script's
-  parent directory (i.e. dist-bin\odcanit-mcp.exe alongside scripts\) --
-  that's the layout of the release download this script ships in.
+  Looks for odcanit-mcp.exe next to this script first (the flat layout of
+  the release zip this script ships in: Setup.bat, setup-windows.ps1, and
+  odcanit-mcp.exe all in one folder), falling back to dist-bin\odcanit-mcp.exe
+  one level up (the source repo's `npm run build:exe` output layout, for
+  running this script directly out of scripts\ during development).
 
   Pass -Uninstall to remove the 'odcanit' entry from Claude Desktop's config
   instead (skips the DB steps entirely):
     powershell -ExecutionPolicy Bypass -File scripts\setup-windows.ps1 -Uninstall
+
+  Setup.bat and Uninstall.bat in this same folder are double-click wrappers
+  around the two invocations above, for users who don't want to open
+  PowerShell manually.
 #>
 
 param(
@@ -92,13 +98,16 @@ if ($Uninstall) {
     exit 0
 }
 
-$repoRoot = Split-Path -Parent $PSScriptRoot
-
 # 1. Locate the standalone server binary
 Write-Step "Locating odcanit-mcp.exe"
-$exePath = Join-Path $repoRoot "dist-bin\odcanit-mcp.exe"
-if (-not (Test-Path $exePath)) {
-    Fail "odcanit-mcp.exe not found at $exePath. Download the latest release zip (which includes dist-bin\odcanit-mcp.exe) and run this script from within it."
+$flatExePath = Join-Path $PSScriptRoot "odcanit-mcp.exe"
+$repoExePath = Join-Path (Split-Path -Parent $PSScriptRoot) "dist-bin\odcanit-mcp.exe"
+if (Test-Path $flatExePath) {
+    $exePath = $flatExePath
+} elseif (Test-Path $repoExePath) {
+    $exePath = $repoExePath
+} else {
+    Fail "odcanit-mcp.exe not found next to this script or at $repoExePath. Download the latest release zip and run Setup.bat from within it."
 }
 Write-Host "Found $exePath"
 

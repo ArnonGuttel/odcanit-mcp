@@ -33,7 +33,9 @@ powershell -ExecutionPolicy Bypass -File scripts\setup-windows.ps1
 powershell -ExecutionPolicy Bypass -File scripts\setup-windows.ps1 -Uninstall  # removes the 'odcanit' entry only
 ```
 
-It expects `dist-bin\odcanit-mcp.exe` next to `scripts\` (the layout of a release download) and fails fast with a clear message if it's missing.
+`scripts\Setup.bat` and `scripts\Uninstall.bat` are thin double-click wrappers around those two invocations (using `%~dp0` so they work regardless of the current directory), for non-technical users who don't know how to open PowerShell in a folder. Keep them in sync if `setup-windows.ps1`'s parameters change, and keep them listed alongside it in the release zip step of `.github/workflows/build-exe.yml`.
+
+`setup-windows.ps1` looks for `odcanit-mcp.exe` in two places, in order: next to itself (the flat layout of the release zip — `odcanit-mcp.exe`, `setup-windows.ps1`, `Setup.bat`, `Uninstall.bat` all in one folder, chosen so a non-technical user extracting the zip sees one obvious thing to double-click rather than a `dist-bin\`/`scripts\` split), then `..\dist-bin\odcanit-mcp.exe` (the source repo's `npm run build:exe` output layout, so the script still works when run directly out of `scripts\` during development). It fails fast with a clear message if neither is found.
 
 ### Packaging the standalone binary (`npm run build:exe`, `scripts/build-exe.mjs`)
 
@@ -46,7 +48,7 @@ It expects `dist-bin\odcanit-mcp.exe` next to `scripts\` (the layout of a releas
 
 The result is unsigned, so Windows SmartScreen will flag it as being from an unrecognized publisher on first run — expected, not a build defect. `.cache/`, `build/`, and `dist-bin/` are all gitignored build output, not committed.
 
-`.github/workflows/build-exe.yml` runs this pipeline in CI on every push/PR to `main` (as a build-only sanity check, uploaded as a workflow artifact) and, when a `v*` tag is pushed, additionally zips `dist-bin/odcanit-mcp.exe` together with `scripts/setup-windows.ps1` (preserving that relative layout, since `setup-windows.ps1` expects the `.exe` at `..\dist-bin\odcanit-mcp.exe`) and publishes it as a GitHub Release via `softprops/action-gh-release` — this is what end users download per the README's Windows setup instructions.
+`.github/workflows/build-exe.yml` runs this pipeline in CI on every push/PR to `main` (as a build-only sanity check, uploaded as a workflow artifact) and, when a `v*` tag is pushed, additionally flattens `dist-bin/odcanit-mcp.exe`, `scripts/setup-windows.ps1`, `scripts/Setup.bat`, and `scripts/Uninstall.bat` into a single `release/` folder (no subfolders — matching `setup-windows.ps1`'s same-directory lookup above) and publishes the zipped result as a GitHub Release via `softprops/action-gh-release` — this is what end users download per the README's Windows setup instructions.
 
 ## Architecture
 

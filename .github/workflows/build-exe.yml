@@ -32,9 +32,11 @@ jobs:
       - name: Package release zip
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
-          mkdir -p release/dist-bin release/scripts
-          cp dist-bin/odcanit-mcp.exe release/dist-bin/
-          cp scripts/setup-windows.ps1 release/scripts/
+          mkdir -p release
+          cp dist-bin/odcanit-mcp.exe release/
+          cp scripts/setup-windows.ps1 release/
+          cp scripts/Setup.bat release/
+          cp scripts/Uninstall.bat release/
           (cd release && zip -r ../odcanit-mcp-windows.zip .)
 
       - name: Publish release
