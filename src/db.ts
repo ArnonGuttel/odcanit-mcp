@@ -11,12 +11,12 @@ function requireEnv(name: string): string {
 }
 
 export function writesEnabled(): boolean {
-  return process.env.DB_ENABLE_WRITES === 'true';
+  return process.env.ODCANIT_DB_ENABLE_WRITES === 'true';
 }
 
 export function assertWritesEnabled(): void {
   if (!writesEnabled()) {
-    throw new Error('Writes are disabled. Set DB_ENABLE_WRITES=true to enable write tools.');
+    throw new Error('Writes are disabled. Set ODCANIT_DB_ENABLE_WRITES=true to enable write tools.');
   }
 }
 
