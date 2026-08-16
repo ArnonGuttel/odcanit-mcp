@@ -1,60 +1,52 @@
 # Odcanit MCP
 
-An open-source [Model Context Protocol](https://modelcontextprotocol.io/) server for [Odcanit](https://www.od.co.il/prod-odcanit/), the Israeli legal practice management software.
-
-This MCP server enables Claude and other AI tools to read data from Odcanit's SQL Server database via its read-only export views (`vwExportToOuterSystems_*`).
+An open-source [Model Context Protocol](https://modelcontextprotocol.io/) server for [Odcanit](https://www.od.co.il/prod-odcanit/), the Israeli legal practice management software. It lets Claude and other AI tools read data from Odcanit's SQL Server database through its read-only export views (`vwExportToOuterSystems_*`).
 
 ## Status
 
-MVP — read-only, two tools:
+MVP, read-only, two tools:
 
-- `get_case_details` — look up a case by number (`vwExportToOuterSystems_Files`)
-- `get_client_details` — look up a client by visual ID (`vwExportToOuterSystems_Clients`)
+| Tool | Looks up | Source view |
+| --- | --- | --- |
+| `get_case_details` | a case, by case number | `vwExportToOuterSystems_Files` |
+| `get_client_details` | a client, by visual ID | `vwExportToOuterSystems_Clients` |
 
 ## How it works
 
-Odcanit has no REST API — external systems connect directly to its SQL Server database and query a fixed set of read-only views (for exporting data) or call stored procedures (for writing data). This server connects to *your* Odcanit SQL Server instance directly, so it must run somewhere with network access to it (e.g. inside your office network, or over VPN).
+Odcanit has no REST API — the only integration surface is direct SQL Server access, through a fixed set of read-only views. This server connects to *your* firm's own Odcanit SQL Server instance, so it must run somewhere with network access to it (e.g. inside your office network, or over VPN).
 
-This server runs locally as a subprocess that Claude launches itself (via the [stdio transport](https://modelcontextprotocol.io/docs/concepts/transports)) — no data or credentials are sent anywhere outside your machine/network.
+It runs locally as a subprocess that Claude launches itself, over the [stdio transport](https://modelcontextprotocol.io/docs/concepts/transports) — no data or credentials are sent anywhere outside your machine/network.
 
-## Getting Started
+## Getting started
 
-This setup is meant to be done once, by whoever administers Odcanit / SQL Server access at your firm (e.g. IT) — not by each individual user of Claude.
+This setup is a one-time task for whoever administers Odcanit / SQL Server access at your firm (e.g. IT), not something each individual Claude user does.
 
-### Prerequisites
+You'll need:
 
 - Network access to your firm's Odcanit SQL Server instance
 - A SQL Server login with read access to the `vwExportToOuterSystems_*` views
-- Node.js 18+ — only if building from source (macOS/Linux, or Claude Code on Windows). The Windows path below uses a prebuilt binary and needs nothing installed.
+- Node.js 18+ — only to build from source. The Windows path below uses a prebuilt binary and needs nothing installed.
 
-### Windows: automated setup (no Node.js required)
+### Windows, no Node.js required
 
-Most Odcanit installs run on Windows, and this is the path for non-technical setup: download the latest release zip from the [Releases page](https://github.com/ArnonGuttel/odcanit-mcp/releases) and extract it — everything you need (`odcanit-mcp.exe`, `Setup.bat`, `Uninstall.bat`, `.mcp.json`) is in one flat folder, nothing to install. Double-click `Setup.bat` — it prompts for your SQL Server details, tests the connection, and registers the server with Claude Desktop automatically. A console window stays open showing progress; press any key to close it when it says "Done".
+Most Odcanit installs run on Windows. Download the latest release zip from the [Releases page](https://github.com/ArnonGuttel/odcanit-mcp/releases) and extract it — it's a single flat folder (`odcanit-mcp.exe`, `Setup.bat`, `Uninstall.bat`, `.mcp.json`), nothing to install.
 
-(If you'd rather run it from a terminal, `Setup.bat` is just a wrapper for `powershell -ExecutionPolicy Bypass -File setup-windows.ps1`.)
+**Claude Desktop:** double-click `Setup.bat`. It prompts for your SQL Server details, tests the connection, and registers the server in Claude Desktop's config, leaving a console window open to show progress — press any key to close it once it says "Done". (`Setup.bat` is a double-click wrapper around `powershell -ExecutionPolicy Bypass -File setup-windows.ps1`, if you'd rather run it from a terminal.) Restart Claude Desktop when it finishes. To reconfigure against a different database later, double-click `Uninstall.bat` first — it only removes the `odcanit` entry from Claude Desktop's config.
 
-Restart Claude Desktop when it finishes.
+**Claude Code:** edit the `.mcp.json` in the extracted folder — it already points at the `odcanit-mcp.exe` next to it — and fill in your SQL Server details in its `env` block. Then run `claude` from inside that folder and approve the project when prompted.
 
-To remove the server from Claude Desktop later (e.g. to reconfigure it against a different database), double-click `Uninstall.bat`.
+Neither `odcanit-mcp.exe` nor the setup script is code-signed, so Windows SmartScreen will flag them as being from an unrecognized publisher the first time you run either — click "More info", then "Run anyway".
 
-This only removes the `odcanit` entry from Claude Desktop's config — it doesn't touch your SQL Server or delete the folder.
+The SQL Server password you enter ends up stored in plain text, either way — in Claude Desktop's `%APPDATA%\Claude\claude_desktop_config.json`, or in the `.mcp.json` you edited. Treat that file like a password, and only run this setup on a machine you trust.
 
-Since neither `odcanit-mcp.exe` nor the setup script is code-signed, Windows SmartScreen may warn that it's from an unrecognized publisher the first time you run either — click "More info" then "Run anyway". This is expected for unsigned files, not a sign of a problem.
-
-**To check it worked:** after restarting Claude Desktop, ask it to look up a case or client you know exists (e.g. "get case details for case 1234"). If you get a result back, the connection is working.
-
-**A note on credentials:** the SQL Server password you enter is saved in plain text in Claude Desktop's own config file (`%APPDATA%\Claude\claude_desktop_config.json`) — the same as any other MCP server's credentials. Treat that file with the same care as a password, and only run this setup on a machine you trust.
-
-**Claude Code instead of Desktop:** `Setup.bat` only registers the server with Claude Desktop. If you use Claude Code on Windows, the release zip also includes a `.mcp.json` template (already pointing at `odcanit-mcp.exe` next to it) — fill in the `env` placeholders with your SQL Server details, then run `claude` from inside the extracted folder and approve the project when prompted.
-
-### Installation from source (macOS/Linux, or Claude Code on Windows)
+### From source (macOS, Linux, or Claude Code on Windows)
 
 ```bash
 npm install
 npm run build
 ```
 
-To build the standalone Windows binary yourself instead of downloading a release (requires Node.js on the build machine only — not on the machine that will run the `.exe`):
+To build the standalone Windows binary yourself, instead of downloading a release (this needs Node.js on the build machine only, not on the machine that will run the `.exe`):
 
 ```bash
 npm run build:exe   # -> dist-bin/odcanit-mcp.exe
@@ -69,30 +61,26 @@ export ODCANIT_DB_HOST="your-sql-server-host"
 export ODCANIT_DB_NAME="your-database-name"
 export ODCANIT_DB_USER="your-username"
 export ODCANIT_DB_PASSWORD="your-password"
-# Optional (defaults shown):
+
+# Optional, defaults shown:
 export ODCANIT_DB_PORT="1433"
 export ODCANIT_DB_ENCRYPT="true"
 export ODCANIT_DB_TRUST_CERT="false"
-# If your server is a named instance (e.g. written as HOST\odcanit), set the
-# instance name instead of a port -- the port is resolved dynamically via the
-# SQL Server Browser service (UDP 1434), so ODCANIT_DB_INSTANCE and
-# ODCANIT_DB_PORT are mutually exclusive:
-export ODCANIT_DB_INSTANCE="odcanit"
 ```
 
-### Usage
+If your server is a named instance (written as `HOST\instance`), set `ODCANIT_DB_INSTANCE` to the instance name instead of a port — the port is resolved dynamically via the SQL Server Browser service (UDP 1434), so `ODCANIT_DB_INSTANCE` and `ODCANIT_DB_PORT` are mutually exclusive:
 
 ```bash
-npm start
+export ODCANIT_DB_INSTANCE="odcanit"
 ```
 
 ### Connecting to Claude
 
-The Windows automated setup above does this for you. Everyone else depends on which Claude client you're using:
+The Windows setup above handles this for you. Building from source, wire it in by hand, depending on which client you use:
 
-**Claude Code** — this repo already includes a [`.mcp.json`](.mcp.json) at its root. Claude Code auto-detects it when you run `claude` from inside this project directory and offers to load the `odcanit` server (you'll get a one-time approval prompt to trust the project). It references `dist/index.js` by relative path and pulls credentials from your shell environment (`${ODCANIT_DB_HOST}`, etc. — see [Configuration](#configuration) above), so no path or secret needs to be edited into the file itself.
+**Claude Code** auto-discovers the [`.mcp.json`](.mcp.json) at this repo's root the first time you run `claude` from inside the project directory, and offers to load the `odcanit` server (a one-time approval prompt). It points at `dist/index.js` by relative path and reads credentials from your shell environment (`${ODCANIT_DB_HOST}`, etc. — see [Configuration](#configuration) above), so nothing in the file itself needs editing.
 
-**Claude Desktop** — Desktop has no equivalent per-project auto-discovery; it only reads one global config file. Add an entry to it by hand (`claude_desktop_config.json`, typically `%APPDATA%\Claude\claude_desktop_config.json` on Windows or `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+**Claude Desktop** has no per-project equivalent — it only reads one global config file. Add an entry to it by hand (`claude_desktop_config.json`, typically `%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
 ```json
 {
@@ -111,17 +99,22 @@ The Windows automated setup above does this for you. Everyone else depends on wh
 }
 ```
 
-Restart Claude after saving the config. It will launch the server locally and connect to your Odcanit database using the credentials above.
+Restart Claude after saving. It launches the server itself and connects to your Odcanit database with the credentials above.
+
+### Verifying it worked
+
+Ask Claude to look up a case or client you know exists — e.g. "get case details for case 1234". A result back means the connection is working.
 
 ## Development
 
 ```bash
-npm run dev  # Watch mode TypeScript compilation
+npm run dev    # tsc --watch, for active development
+npm start       # run the built server directly (dist/index.js)
 ```
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome — feel free to open a Pull Request.
 
 ## License
 
