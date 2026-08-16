@@ -29,22 +29,31 @@ server.registerTool('get_client_details', getClientDetailsTool, async ({ visualI
   };
 });
 
-async function testConnection() {
-  try {
-    const pool = await getPool();
-    await pool.request().query('SELECT 1');
-    console.log('OK');
-    process.exit(0);
-  } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error));
-    process.exit(1);
-  }
+async function checkConnection() {
+  const pool = await getPool();
+  await pool.request().query('SELECT 1');
 }
 
 async function main() {
   if (process.argv.includes('--test-connection')) {
-    await testConnection();
-    return;
+    try {
+      await checkConnection();
+      console.log('OK');
+      process.exit(0);
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+  }
+
+  try {
+    await checkConnection();
+  } catch (error) {
+    console.error(
+      'Failed to connect to the Odcanit database:',
+      error instanceof Error ? error.message : String(error)
+    );
+    process.exit(1);
   }
 
   const transport = new StdioServerTransport();
