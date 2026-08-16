@@ -74,11 +74,7 @@ export ODCANIT_DB_INSTANCE="odcanit"
 
 ### Connecting to Claude
 
-The Windows setup above handles this for you. Building from source, wire it in by hand, depending on which client you use:
-
-**Claude Code** auto-discovers the [`.mcp.json`](.mcp.json) at this repo's root the first time you run `claude` from inside the project directory, and offers to load the `odcanit` server (a one-time approval prompt). It points at `dist/index.js` by relative path and reads credentials from your shell environment (`${ODCANIT_DB_HOST}`, etc. — see [Configuration](#configuration) above), so nothing in the file itself needs editing.
-
-**Claude Desktop** has no per-project equivalent — it only reads one global config file. Add an entry to it by hand (`claude_desktop_config.json`, typically `%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+The Windows setup above handles this for you. Building from source, add an entry to your Claude Desktop or Claude Code MCP config by hand (e.g. `claude_desktop_config.json`, typically `%APPDATA%\Claude\claude_desktop_config.json` on Windows or `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS; or a project's `.mcp.json` for Claude Code):
 
 ```json
 {
