@@ -86,7 +86,10 @@ npm start
 
 ### Connecting to Claude
 
-The Windows automated setup above does this for you. To wire it up manually (e.g. building from source), add an entry to your Claude Desktop or Claude Code MCP config (e.g. `claude_desktop_config.json` or `.mcp.json`):
+The Windows automated setup above does this for you. To wire it up manually (e.g. building from source), add an entry to your Claude Desktop or Claude Code MCP config (e.g. `claude_desktop_config.json` or `.mcp.json`). Two ready-to-edit templates are in [`examples/`](examples/) — copy the `"odcanit"` block into your existing config's `mcpServers` object, fill in your real host/database/credentials in place of the placeholders, and update the path:
+
+- [`examples/claude_desktop_config.node.json`](examples/claude_desktop_config.node.json) — running from source with Node.js
+- [`examples/claude_desktop_config.exe.json`](examples/claude_desktop_config.exe.json) — running the standalone Windows `.exe`
 
 ```json
 {
@@ -94,25 +97,6 @@ The Windows automated setup above does this for you. To wire it up manually (e.g
     "odcanit": {
       "command": "node",
       "args": ["/absolute/path/to/odcanit-mcp/dist/index.js"],
-      "env": {
-        "ODCANIT_DB_HOST": "your-sql-server-host",
-        "ODCANIT_DB_NAME": "your-database-name",
-        "ODCANIT_DB_USER": "your-username",
-        "ODCANIT_DB_PASSWORD": "your-password"
-      }
-    }
-  }
-}
-```
-
-Or, using the standalone Windows binary directly instead of `node`:
-
-```json
-{
-  "mcpServers": {
-    "odcanit": {
-      "command": "C:\\absolute\\path\\to\\dist-bin\\odcanit-mcp.exe",
-      "args": [],
       "env": {
         "ODCANIT_DB_HOST": "your-sql-server-host",
         "ODCANIT_DB_NAME": "your-database-name",
