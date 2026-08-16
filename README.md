@@ -86,10 +86,11 @@ npm start
 
 ### Connecting to Claude
 
-The Windows automated setup above does this for you. To wire it up manually (e.g. building from source), add an entry to your Claude Desktop or Claude Code MCP config (e.g. `claude_desktop_config.json` or `.mcp.json`). Two ready-to-edit templates are in [`examples/`](examples/) — copy the `"odcanit"` block into your existing config's `mcpServers` object, fill in your real host/database/credentials in place of the placeholders, and update the path:
+The Windows automated setup above does this for you. Everyone else depends on which Claude client you're using:
 
-- [`examples/claude_desktop_config.node.json`](examples/claude_desktop_config.node.json) — running from source with Node.js
-- [`examples/claude_desktop_config.exe.json`](examples/claude_desktop_config.exe.json) — running the standalone Windows `.exe`
+**Claude Code** — this repo already includes a [`.mcp.json`](.mcp.json) at its root. Claude Code auto-detects it when you run `claude` from inside this project directory and offers to load the `odcanit` server (you'll get a one-time approval prompt to trust the project). It references `dist/index.js` by relative path and pulls credentials from your shell environment (`${ODCANIT_DB_HOST}`, etc. — see [Configuration](#configuration) above), so no path or secret needs to be edited into the file itself.
+
+**Claude Desktop** — Desktop has no equivalent per-project auto-discovery; it only reads one global config file. Add an entry to it by hand (`claude_desktop_config.json`, typically `%APPDATA%\Claude\claude_desktop_config.json` on Windows or `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
 ```json
 {
