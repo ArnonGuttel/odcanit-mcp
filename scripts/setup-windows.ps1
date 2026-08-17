@@ -3,8 +3,10 @@
   Interactive setup for odcanit-mcp on Windows. No Node.js or other
   dependencies required -- odcanit-mcp.exe is a standalone binary.
   Run this once per machine that will host the MCP server for a firm.
-  It collects your Odcanit SQL Server details, tests the connection using
-  the bundled odcanit-mcp.exe, and registers it in Claude Desktop's config.
+  It collects your Odcanit SQL Server host/port and checks it's reachable
+  over TCP before asking for a username/password, then tests the full
+  authenticated connection using the bundled odcanit-mcp.exe and registers
+  it in Claude Desktop's config.
 
   Looks for odcanit-mcp.exe next to this script first (the flat layout of
   the release zip this script ships in: Setup.bat, setup-windows.ps1, and
@@ -63,6 +65,25 @@ function Read-Port($prompt, $default) {
     return "$parsed"
 }
 
+# Raw TCP reachability probe -- no SQL Server protocol, no credentials
+# involved, just "is something listening on host:port". Used to catch a
+# wrong host/port or a firewall block before the user bothers typing a
+# username and password.
+function Test-TcpConnection($computerName, $port, $timeoutMs = 3000) {
+    try {
+        $client = New-Object System.Net.Sockets.TcpClient
+        $asyncResult = $client.BeginConnect($computerName, $port, $null, $null)
+        $connected = $asyncResult.AsyncWaitHandle.WaitOne($timeoutMs) -and $client.Connected
+        if ($connected) {
+            $client.EndConnect($asyncResult)
+        }
+        $client.Close()
+        return $connected
+    } catch {
+        return $false
+    }
+}
+
 if ($Uninstall) {
     Write-Step "Removing odcanit from Claude Desktop config"
     $configDir = Join-Path $env:APPDATA "Claude"
@@ -117,6 +138,32 @@ Write-Host "Get these from whoever administers your Odcanit / SQL Server (usuall
 
 $dbHost = Read-NonEmpty "SQL Server host"
 $dbInstance = (Read-Host "Named instance (press Enter to skip, e.g. 'odcanit' if your host is written as HOST\odcanit)").Trim()
+
+$dbPort = $null
+if ([string]::IsNullOrWhiteSpace($dbInstance)) {
+    $dbPort = Read-Port "Port" "1433"
+} else {
+    Write-Host "Named instance set -- skipping port (resolved dynamically via SQL Server Browser, UDP 1434)."
+}
+
+# Check network reachability before asking for a username/password, so a
+# wrong host/port or a firewall block surfaces before credentials are typed.
+if ($dbPort) {
+    Write-Step "Checking network connectivity to $dbHost`:$dbPort"
+    if (Test-TcpConnection $dbHost $dbPort) {
+        Write-Host "Reachable." -ForegroundColor Green
+    } else {
+        Write-Host "Could not open a TCP connection to $dbHost`:$dbPort." -ForegroundColor Yellow
+        Write-Host "This usually means a wrong host/port, or a firewall blocking access." -ForegroundColor Yellow
+        $proceed = (Read-Host "Continue anyway and enter credentials? (y/N)").Trim()
+        if ($proceed -notmatch '^[Yy]') {
+            Fail "Aborted. Double-check the host/port with your IT contact and re-run this script."
+        }
+    }
+} else {
+    Write-Host "Network connectivity for named instances is checked as part of the full connection test after credentials (port is resolved dynamically)." -ForegroundColor DarkGray
+}
+
 $dbName = Read-NonEmpty "Database name"
 $dbUser = Read-NonEmpty "Username"
 
@@ -129,13 +176,6 @@ do {
         Write-Host "This field can't be empty." -ForegroundColor Yellow
     }
 } while ([string]::IsNullOrWhiteSpace($dbPassword))
-
-$dbPort = $null
-if ([string]::IsNullOrWhiteSpace($dbInstance)) {
-    $dbPort = Read-Port "Port" "1433"
-} else {
-    Write-Host "Named instance set -- skipping port (resolved dynamically via SQL Server Browser, UDP 1434)."
-}
 
 $env:ODCANIT_DB_HOST = $dbHost
 $env:ODCANIT_DB_NAME = $dbName
