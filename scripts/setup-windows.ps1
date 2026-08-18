@@ -63,6 +63,23 @@ function Read-Port($prompt, $default) {
     return "$parsed"
 }
 
+function Read-YesNo($prompt, $default) {
+    $suffix = if ($default) { "Y/n" } else { "y/N" }
+    do {
+        $value = (Read-Host "$prompt ($suffix)").Trim().ToLower()
+        if ([string]::IsNullOrWhiteSpace($value)) {
+            return $default
+        }
+        if ($value -eq 'y' -or $value -eq 'yes') {
+            return $true
+        }
+        if ($value -eq 'n' -or $value -eq 'no') {
+            return $false
+        }
+        Write-Host "Please answer y or n." -ForegroundColor Yellow
+    } while ($true)
+}
+
 if ($Uninstall) {
     Write-Step "Removing odcanit from Claude Desktop config"
     $configDir = Join-Path $env:APPDATA "Claude"
@@ -137,6 +154,8 @@ if ([string]::IsNullOrWhiteSpace($dbInstance)) {
     Write-Host "Named instance set -- skipping port (resolved dynamically via SQL Server Browser, UDP 1434)."
 }
 
+$trustCert = Read-YesNo "Does the SQL Server use a self-signed certificate? (say yes if the connection test below fails with a certificate error)" $false
+
 $env:ODCANIT_DB_HOST = $dbHost
 $env:ODCANIT_DB_NAME = $dbName
 $env:ODCANIT_DB_USER = $dbUser
@@ -146,6 +165,11 @@ if ($dbInstance) {
     $env:ODCANIT_DB_PORT = $null
 } else {
     $env:ODCANIT_DB_PORT = $dbPort
+}
+if ($trustCert) {
+    $env:ODCANIT_DB_TRUST_CERT = "true"
+} else {
+    $env:ODCANIT_DB_TRUST_CERT = $null
 }
 
 # 3. Test the connection
@@ -191,6 +215,9 @@ if ($dbInstance) {
     $envEntry | Add-Member -MemberType NoteProperty -Name 'ODCANIT_DB_INSTANCE' -Value $dbInstance
 } else {
     $envEntry | Add-Member -MemberType NoteProperty -Name 'ODCANIT_DB_PORT' -Value $dbPort
+}
+if ($trustCert) {
+    $envEntry | Add-Member -MemberType NoteProperty -Name 'ODCANIT_DB_TRUST_CERT' -Value 'true'
 }
 
 $odcanitEntry = [PSCustomObject]@{
