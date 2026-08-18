@@ -35,7 +35,7 @@ Double-click `Setup.bat`. It prompts for your SQL Server details, tests the conn
 
 Neither `odcanit-mcp.exe` nor the setup script is code-signed, so Windows SmartScreen will flag them as being from an unrecognized publisher the first time you run either — click "More info", then "Run anyway".
 
-The SQL Server password you enter is saved in plain text in Claude Desktop's own config file (`%APPDATA%\Claude\claude_desktop_config.json`) — the same as any other MCP server's credentials. Treat that file with the same care as a password, and only run this setup on a machine you trust.
+The SQL Server password you enter is saved in plain text in Claude Desktop's own config file — the same as any other MCP server's credentials. That's normally `%APPDATA%\Claude\claude_desktop_config.json`, but if Claude Desktop was installed from the Microsoft Store it sandboxes its config to `%LOCALAPPDATA%\Packages\Claude_<hash>\LocalCache\Roaming\Claude\claude_desktop_config.json` instead; the setup script detects which applies and prints the exact path it's about to write to before asking you to confirm. Treat that file with the same care as a password, and only run this setup on a machine you trust.
 
 ### From source (macOS, Linux, or Claude Code on Windows)
 
