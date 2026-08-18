@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 An MCP (Model Context Protocol) server that exposes read-only data from Odcanit — an Israeli legal practice management system — to Claude and other AI tools. Odcanit has no REST API; the only integration surface is direct SQL Server access via a fixed set of read-only views (`vwExportToOuterSystems_*`) and stored procedures (for writes, not currently used). This server connects directly to a firm's own SQL Server instance and runs locally as a stdio subprocess launched by Claude Desktop/Code — no data leaves the local machine/network.
 
-Status: MVP, read-only, two tools only.
+Status: MVP, read-only, 9 tools.
 
 ## Workflow
 
@@ -58,14 +58,28 @@ The result is unsigned, so Windows SmartScreen will flag it as being from an unr
 
 ## Architecture
 
-The whole server is four small files in `src/`:
+The whole server is five small files in `src/`:
 
 - **`db.ts`** — lazily creates and caches a single `mssql` `ConnectionPool` (module-level singleton, built from `ODCANIT_DB_*` env vars). `queryOdcanit<T>(query, params)` is the only query entry point: it grabs the pool, binds `params` as named SQL parameters via `request.input()`, and returns `result.recordset` typed as `T[]`. All queries are parameterized this way — never interpolate user input into the SQL string directly. Also exports `writesEnabled()`/`assertWritesEnabled()`, a guard for future write-capable tools (`ODCANIT_DB_ENABLE_WRITES`, default `false`) — not a connection parameter, since it gates what queries get run, not how the pool connects. Nothing calls it yet; no write tool exists.
-- **`types.ts`** — TypeScript interfaces (`Case`, `Client`) mirroring the columns of the Odcanit export views. Each interface's doc comment names its source view (`vwExportToOuterSystems_Files`, `vwExportToOuterSystems_Clients`) — keep that pairing when adding new views/interfaces.
-- **`tools.ts`** — MCP tool definitions: `description` + a Zod `inputSchema` per tool. Pure metadata, no query logic.
-- **`index.ts`** — wires everything together: constructs the `McpServer`, calls `server.registerTool(name, toolDef, handler)` for each tool, and each handler runs a `SELECT * FROM <view> WHERE <key> = @param` through `queryOdcanit`, returning the first row (or `null`) as a JSON text content block. `main()` checks for a `--test-connection` flag first (runs a `SELECT 1` via `getPool()` and exits 0/1 — used by the packaged `.exe`, see below); otherwise it connects the real MCP server over `StdioServerTransport`.
+- **`types.ts`** — TypeScript interfaces mirroring the columns of the Odcanit export views, but only for views backing a dedicated tool (single-row lookups and the non-case-scoped lists — `Case`, `Client`, `InvoicePaymentLink`, `EmployeeAbsence`, `OdcanitUser`, `UserHourlyRate`, `RegisteredBusiness`, `Court`). Each interface's doc comment names its source view — keep that pairing when adding new ones. The 19 case-scoped datasets behind `get_case_data` (see below) are *not* typed here — they're dispatched generically as `Record<string, unknown>`, since a single handler can't bind one static `T` per `dataset` value.
+- **`tools.ts`** — MCP tool definitions: `description` + a Zod `inputSchema` per tool. Pure metadata, no query logic. Also exports `CASE_DATASETS`, the `as const` tuple of dataset keys that both the `get_case_data` Zod enum and `register.ts`'s query map are built from.
+- **`register.ts`** — exports `registerTools(server)`, which calls `server.registerTool(name, toolDef, handler)` for each tool; each handler runs a query through `queryOdcanit`. Also holds `CASE_DATA_QUERIES`, the dataset → SQL lookup table backing `get_case_data`. This is the file that grows as tools are added — kept separate from `index.ts` so the server's startup/transport lifecycle doesn't get lost in a growing list of tool handlers.
+- **`index.ts`** — lifecycle only: constructs the `McpServer`, calls `registerTools(server)` once, then `main()` checks for a `--test-connection` flag first (runs a `SELECT 1` via `getPool()` and exits 0/1 — used by the packaged `.exe`, see below); otherwise it connects the real MCP server over `StdioServerTransport`.
 
-To add a new read-only tool: add a `vwExportToOuterSystems_*`-backed interface to `types.ts`, a tool definition to `tools.ts`, and a `registerTool` call + query in `index.ts` following the existing pattern — one row lookup by a single key parameter, returned as `JSON.stringify(rows[0] ?? null)`.
+Three tool shapes exist:
+
+- **Single-row lookup** (`get_case_details`, `get_client_details`, `get_user_details`, `get_registered_business`, `get_court`): the key (`TikNumber`, `VisualID`, `UserID`, `Counter`, `CourtCodeCounter`) uniquely identifies one row in that tool's view, so the handler returns `JSON.stringify(rows[0] ?? null)`.
+- **Fixed scoped list** (`get_invoice_payment_links`, `get_employee_absences`, `get_user_hourly_rates`): each is pinned to one view and one non-`TikNumber` filter key (`IDinvoice`, `UserID`), so they stay as dedicated tools rather than folding into `get_case_data` below. The handler returns the full array as `JSON.stringify(rows)` — never `rows[0]`, which would silently drop every row but the first.
+- **`get_case_data(tikNumber, dataset)`** — one tool covering all 19 case-scoped list datasets (`handlers`, `actions`, `debtors`, `trust_funds`, `parties`, `linked_cases`, `expenses`, `billing`, `invoice_summary`, `receipts_and_payments`, `calendar_events`, `tasks`, `custom_fields`, `change_log`, `documents`, `attachments`, `hybrid_mail`, `web_forms`, `phone_calls`) that were previously 19 separate tools (`get_case_handlers`, `get_case_actions`, etc.). The handler looks up `dataset` in `CASE_DATA_QUERIES`, a `Record<(typeof CASE_DATASETS)[number], string>` in `register.ts`, and runs that query. This collapse exists because per-tool schemas are sent to the model on every turn regardless of use, and near-identical single-purpose tools (same input, same list-of-rows shape, differing only in which view) hurt tool-selection accuracy as the tool count grows — collapsing them into one enum-dispatched tool cut the total tool count from 28 to 9.
+
+The views behind `get_case_data` aren't consistent about which case-identifying column they expose, so the query varies by dataset in `CASE_DATA_QUERIES`:
+
+- Some expose `TikNumber` directly (`expenses` → `Expenses`, `attachments` → `Nispah`, plus `handlers`, `actions`, `debtors`, `trust_funds`, `parties`) — filter on it directly.
+- Some expose `TikVisualID` instead (`billing` → `Billing`, `invoice_summary` → `InvoiceByCategoryAndVat`, `receipts_and_payments` → `ReceiptAndIncome`, `documents` → `Documents`) — same value, different column name in that view.
+- Some expose only the internal `TikCounter`, not `TikNumber` (`calendar_events` → `YomanData`, `tasks` → `Tasks`, `custom_fields` → `UserData`, `change_log` → `ActionLog`, `hybrid_mail` → `HybridMail`, `web_forms` → `WebForms`, `phone_calls` → `vwPhoneCenterCallsInfo`) — the query `JOIN`s through `vwExportToOuterSystems_Files` on `TikCounter`, filtered by `f.TikNumber = @tikNumber`, so the tool's public input still stays `TikNumber` like every other dataset.
+- `linked_cases` is the one exception backed by a table-valued function (`dbo.udfExportToOuterSystems_GetLinkedMainTiks`) rather than a view; it only accepts `TikCounter`, so it's resolved the same way via `CROSS APPLY` against `Files`.
+
+To add a new read-only tool: decide first whether it's case-scoped by `TikNumber` — if so, add a new key to `CASE_DATASETS` in `tools.ts` (updating `getCaseDataTool`'s description) and a matching query to `CASE_DATA_QUERIES` in `register.ts`, checking which case-identifying column the view actually exposes before writing the `WHERE`/`JOIN`, per the bullets above. If it's scoped by something else entirely (a new key, not `TikNumber`), add a `vwExportToOuterSystems_*`-backed interface to `types.ts`, a tool definition to `tools.ts`, and a `registerTool` call + query in `register.ts` as a dedicated tool — pick single-row vs. list based on whether the filter key is unique in that view.
 
 Module system is ESM throughout (`"type": "module"` in package.json, `NodeNext` module resolution) — relative imports in `.ts` source use explicit `.js` extensions (e.g. `import { queryOdcanit } from './db.js'`), since that's what they resolve to after compilation.
 
