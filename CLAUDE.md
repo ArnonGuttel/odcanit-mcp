@@ -12,6 +12,8 @@ Status: MVP, read-only, two tools only.
 
 Never push directly to `main`. For any change, check out a new branch, commit there, push the branch, and open a PR into `main` — even for small doc/config edits.
 
+Always ask for confirmation before running `git commit` or `git push` — do not commit or push automatically as part of a task, even on a feature branch.
+
 ## Commands
 
 ```bash

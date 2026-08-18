@@ -63,10 +63,51 @@ function Read-Port($prompt, $default) {
     return "$parsed"
 }
 
+function Read-YesNo($prompt, $default) {
+    $suffix = if ($default) { "Y/n" } else { "y/N" }
+    do {
+        $value = (Read-Host "$prompt ($suffix)").Trim().ToLower()
+        if ([string]::IsNullOrWhiteSpace($value)) {
+            return $default
+        }
+        if ($value -eq 'y' -or $value -eq 'yes') {
+            return $true
+        }
+        if ($value -eq 'n' -or $value -eq 'no') {
+            return $false
+        }
+        Write-Host "Please answer y or n." -ForegroundColor Yellow
+    } while ($true)
+}
+
+function Get-ClaudeConfigPath {
+    # Store-installed (MSIX) Claude Desktop sandboxes filesystem access, so it
+    # reads/writes its config under a per-package virtualized AppData folder
+    # instead of the classic %APPDATA%\Claude used by non-Store installs.
+    # Detect which applies rather than assuming the classic path.
+    $packagesRoot = Join-Path $env:LOCALAPPDATA "Packages"
+    $msixDirs = @()
+    if (Test-Path $packagesRoot) {
+        $msixDirs = @(Get-ChildItem -Path $packagesRoot -Directory -Filter "Claude_*" -ErrorAction SilentlyContinue |
+            ForEach-Object { Join-Path $_.FullName "LocalCache\Roaming\Claude" })
+    }
+
+    if ($msixDirs.Count -eq 0) {
+        return Join-Path (Join-Path $env:APPDATA "Claude") "claude_desktop_config.json"
+    }
+
+    $existing = @($msixDirs | Where-Object { Test-Path (Join-Path $_ "claude_desktop_config.json") })
+    $configDir = if ($existing.Count -gt 0) { $existing[0] } else { $msixDirs[0] }
+    if ($msixDirs.Count -gt 1) {
+        Write-Host "Multiple Claude Store packages found -- using $configDir" -ForegroundColor Yellow
+    }
+    return Join-Path $configDir "claude_desktop_config.json"
+}
+
 if ($Uninstall) {
     Write-Step "Removing odcanit from Claude Desktop config"
-    $configDir = Join-Path $env:APPDATA "Claude"
-    $configPath = Join-Path $configDir "claude_desktop_config.json"
+    $configPath = Get-ClaudeConfigPath
+    $configDir = Split-Path -Parent $configPath
 
     if (-not (Test-Path $configPath)) {
         Write-Host "No Claude Desktop config found at $configPath -- nothing to remove."
@@ -85,6 +126,12 @@ if ($Uninstall) {
 
     if (-not $hasOdcanit) {
         Write-Host "No 'odcanit' entry found in Claude Desktop config -- nothing to remove."
+        exit 0
+    }
+
+    Write-Host "This will update: $configPath"
+    if (-not (Read-YesNo "Continue?" $true)) {
+        Write-Host "Cancelled."
         exit 0
     }
 
@@ -137,6 +184,8 @@ if ([string]::IsNullOrWhiteSpace($dbInstance)) {
     Write-Host "Named instance set -- skipping port (resolved dynamically via SQL Server Browser, UDP 1434)."
 }
 
+$trustCert = Read-YesNo "Does the SQL Server use a self-signed certificate? (say yes if the connection test below fails with a certificate error)" $false
+
 $env:ODCANIT_DB_HOST = $dbHost
 $env:ODCANIT_DB_NAME = $dbName
 $env:ODCANIT_DB_USER = $dbUser
@@ -146,6 +195,11 @@ if ($dbInstance) {
     $env:ODCANIT_DB_PORT = $null
 } else {
     $env:ODCANIT_DB_PORT = $dbPort
+}
+if ($trustCert) {
+    $env:ODCANIT_DB_TRUST_CERT = "true"
+} else {
+    $env:ODCANIT_DB_TRUST_CERT = $null
 }
 
 # 3. Test the connection
@@ -158,8 +212,14 @@ Write-Host "Connection succeeded."
 
 # 4. Write Claude Desktop config
 Write-Step "Registering the server with Claude Desktop"
-$configDir = Join-Path $env:APPDATA "Claude"
-$configPath = Join-Path $configDir "claude_desktop_config.json"
+$configPath = Get-ClaudeConfigPath
+$configDir = Split-Path -Parent $configPath
+
+Write-Host "This will update: $configPath"
+if (-not (Read-YesNo "Continue?" $true)) {
+    Write-Host "Cancelled."
+    exit 0
+}
 
 if (-not (Test-Path $configDir)) {
     New-Item -ItemType Directory -Path $configDir -Force | Out-Null
@@ -191,6 +251,9 @@ if ($dbInstance) {
     $envEntry | Add-Member -MemberType NoteProperty -Name 'ODCANIT_DB_INSTANCE' -Value $dbInstance
 } else {
     $envEntry | Add-Member -MemberType NoteProperty -Name 'ODCANIT_DB_PORT' -Value $dbPort
+}
+if ($trustCert) {
+    $envEntry | Add-Member -MemberType NoteProperty -Name 'ODCANIT_DB_TRUST_CERT' -Value 'true'
 }
 
 $odcanitEntry = [PSCustomObject]@{
