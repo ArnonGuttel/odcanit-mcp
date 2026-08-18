@@ -129,6 +129,12 @@ if ($Uninstall) {
         exit 0
     }
 
+    Write-Host "This will update: $configPath"
+    if (-not (Read-YesNo "Continue?" $true)) {
+        Write-Host "Cancelled."
+        exit 0
+    }
+
     $config.mcpServers.PSObject.Properties.Remove('odcanit')
 
     $json = $config | ConvertTo-Json -Depth 10
@@ -208,6 +214,12 @@ Write-Host "Connection succeeded."
 Write-Step "Registering the server with Claude Desktop"
 $configPath = Get-ClaudeConfigPath
 $configDir = Split-Path -Parent $configPath
+
+Write-Host "This will update: $configPath"
+if (-not (Read-YesNo "Continue?" $true)) {
+    Write-Host "Cancelled."
+    exit 0
+}
 
 if (-not (Test-Path $configDir)) {
     New-Item -ItemType Directory -Path $configDir -Force | Out-Null
