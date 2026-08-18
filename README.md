@@ -4,12 +4,43 @@ An open-source [Model Context Protocol](https://modelcontextprotocol.io/) server
 
 ## Status
 
-MVP, read-only, two tools:
+MVP, read-only, 9 tools:
 
 | Tool | Looks up | Source view |
 | --- | --- | --- |
 | `get_case_details` | a case, by case number | `vwExportToOuterSystems_Files` |
 | `get_client_details` | a client, by visual ID | `vwExportToOuterSystems_Clients` |
+| `get_case_data` | one dataset scoped to a case, by case number + `dataset` (see below) | 19 views, one per `dataset` |
+| `get_invoice_payment_links` | payments reconciled against an invoice, by invoice number | `vwExportToOuterSystems_InvoiceToIncome` |
+| `get_employee_absences` | absence entries for a staff member, by user ID | `vwExportToOuterSystems_EmployeeAbsenceList` |
+| `get_user_details` | a firm user, by user ID | `vwExportToOuterSystems_LoginUsers` |
+| `get_user_hourly_rates` | hourly billing rate history for a user, by user ID | `vwExportToOuterSystems_HourlyUserPrices` |
+| `get_registered_business` | a registered business entity, by business ID | `vwExportToOuterSystems_RegisteredBusinesses` |
+| `get_court` | a court, by court code | `vwExportToOuterSystems_Courts` |
+
+`get_case_data`'s `dataset` parameter picks which case-scoped list to fetch:
+
+| `dataset` | Returns |
+| --- | --- |
+| `handlers` | Users assigned to handle the case |
+| `actions` | Logged actions/activity entries |
+| `debtors` | Debtors named on the case |
+| `trust_funds` | Trust/principal fund entries |
+| `parties` | Parties beyond the primary client |
+| `linked_cases` | Other cases linked to this one |
+| `expenses` | Expenses recorded on the case |
+| `billing` | Billing line items |
+| `invoice_summary` | Invoice summaries by category and VAT |
+| `receipts_and_payments` | Receipts, tax invoices, and linked payments |
+| `calendar_events` | Calendar events (hearings/meetings) |
+| `tasks` | Tasks linked to the case |
+| `custom_fields` | Custom form/tab field values |
+| `change_log` | Change-log audit trail |
+| `documents` | Documents linked to the case |
+| `attachments` | Appendix/attachment log entries |
+| `hybrid_mail` | Physical mail/print jobs sent |
+| `web_forms` | Digital questionnaires sent |
+| `phone_calls` | Phone call log entries |
 
 ## How it works
 
