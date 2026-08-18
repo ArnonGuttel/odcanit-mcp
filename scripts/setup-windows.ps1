@@ -80,10 +80,34 @@ function Read-YesNo($prompt, $default) {
     } while ($true)
 }
 
+function Get-ClaudeConfigPath {
+    # Store-installed (MSIX) Claude Desktop sandboxes filesystem access, so it
+    # reads/writes its config under a per-package virtualized AppData folder
+    # instead of the classic %APPDATA%\Claude used by non-Store installs.
+    # Detect which applies rather than assuming the classic path.
+    $packagesRoot = Join-Path $env:LOCALAPPDATA "Packages"
+    $msixDirs = @()
+    if (Test-Path $packagesRoot) {
+        $msixDirs = @(Get-ChildItem -Path $packagesRoot -Directory -Filter "Claude_*" -ErrorAction SilentlyContinue |
+            ForEach-Object { Join-Path $_.FullName "LocalCache\Roaming\Claude" })
+    }
+
+    if ($msixDirs.Count -eq 0) {
+        return Join-Path (Join-Path $env:APPDATA "Claude") "claude_desktop_config.json"
+    }
+
+    $existing = @($msixDirs | Where-Object { Test-Path (Join-Path $_ "claude_desktop_config.json") })
+    $configDir = if ($existing.Count -gt 0) { $existing[0] } else { $msixDirs[0] }
+    if ($msixDirs.Count -gt 1) {
+        Write-Host "Multiple Claude Store packages found -- using $configDir" -ForegroundColor Yellow
+    }
+    return Join-Path $configDir "claude_desktop_config.json"
+}
+
 if ($Uninstall) {
     Write-Step "Removing odcanit from Claude Desktop config"
-    $configDir = Join-Path $env:APPDATA "Claude"
-    $configPath = Join-Path $configDir "claude_desktop_config.json"
+    $configPath = Get-ClaudeConfigPath
+    $configDir = Split-Path -Parent $configPath
 
     if (-not (Test-Path $configPath)) {
         Write-Host "No Claude Desktop config found at $configPath -- nothing to remove."
@@ -182,8 +206,8 @@ Write-Host "Connection succeeded."
 
 # 4. Write Claude Desktop config
 Write-Step "Registering the server with Claude Desktop"
-$configDir = Join-Path $env:APPDATA "Claude"
-$configPath = Join-Path $configDir "claude_desktop_config.json"
+$configPath = Get-ClaudeConfigPath
+$configDir = Split-Path -Parent $configPath
 
 if (-not (Test-Path $configDir)) {
     New-Item -ItemType Directory -Path $configDir -Force | Out-Null
