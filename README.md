@@ -9,12 +9,12 @@ MVP, read-only, 9 tools:
 | Tool | Looks up | Source view |
 | --- | --- | --- |
 | `get_case_details` | a case, by case number | `vwExportToOuterSystems_Files` |
-| `get_client_details` | a client, by visual ID | `vwExportToOuterSystems_Clients` |
+| `list_cases` | cases, optionally filtered by status/client/type/owner/create/modify date, paginated | `vwExportToOuterSystems_Files` |
 | `get_case_data` | one dataset scoped to a case, by case number + `dataset` (see below) | 19 views, one per `dataset` |
+| `get_client_details` | a client, by visual ID | `vwExportToOuterSystems_Clients` |
 | `get_invoice_payment_links` | payments reconciled against an invoice, by invoice number | `vwExportToOuterSystems_InvoiceToIncome` |
-| `get_employee_absences` | absence entries for a staff member, by user ID | `vwExportToOuterSystems_EmployeeAbsenceList` |
 | `get_user_details` | a firm user, by user ID | `vwExportToOuterSystems_LoginUsers` |
-| `get_user_hourly_rates` | hourly billing rate history for a user, by user ID | `vwExportToOuterSystems_HourlyUserPrices` |
+| `get_user_data` | one dataset scoped to a user, by user ID + `dataset` (see below) | 2 views, one per `dataset` |
 | `get_registered_business` | a registered business entity, by business ID | `vwExportToOuterSystems_RegisteredBusinesses` |
 | `get_court` | a court, by court code | `vwExportToOuterSystems_Courts` |
 
@@ -41,6 +41,13 @@ MVP, read-only, 9 tools:
 | `hybrid_mail` | Physical mail/print jobs sent |
 | `web_forms` | Digital questionnaires sent |
 | `phone_calls` | Phone call log entries |
+
+`get_user_data`'s `dataset` parameter picks which user-scoped list to fetch:
+
+| `dataset` | Returns |
+| --- | --- |
+| `absences` | Leave/absence entries for the user |
+| `hourly_rates` | Hourly billing rate history for the user |
 
 ## How it works
 

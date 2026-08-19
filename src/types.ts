@@ -39,19 +39,6 @@ export interface InvoicePaymentLink {
   amountInIncomeCurrencyWithoutVat?: number;
 }
 
-// Source: vwExportToOuterSystems_EmployeeAbsenceList
-export interface EmployeeAbsence {
-  counter: number;
-  userID: number;
-  absenceTypeName?: string;
-  dated?: Date;
-  startTime?: Date;
-  endTime?: Date;
-  hourCount?: number;
-  isFullDay?: number;
-  name?: string;
-}
-
 // Source: vwExportToOuterSystems_LoginUsers
 export interface OdcanitUser {
   userID: number;
@@ -63,14 +50,6 @@ export interface OdcanitUser {
   employeeID?: string;
   lastLogin?: Date;
   inSystem?: number;
-}
-
-// Source: vwExportToOuterSystems_HourlyUserPrices
-export interface UserHourlyRate {
-  userID: number;
-  fromDate?: Date;
-  untilDate?: Date;
-  pricePerHour?: number;
 }
 
 // Source: vwExportToOuterSystems_RegisteredBusinesses
