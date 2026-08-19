@@ -65,6 +65,33 @@ export async function queryOdcanit<T>(query: string, params: Record<string, unkn
   return result.recordset;
 }
 
+type SqlType = sql.ISqlType | (() => sql.ISqlType);
+
+export async function executeOdcanitProcedure(
+  procedureName: string,
+  inputs: Record<string, { type: SqlType; value: unknown }>,
+  outputs: Record<string, SqlType> = {}
+): Promise<Record<string, unknown>> {
+  assertWritesEnabled();
+  const connection = await getPool();
+  const request = connection.request();
+
+  for (const [name, { type, value }] of Object.entries(inputs)) {
+    request.input(name, type, value);
+  }
+  request.output('Error', sql.VarChar(sql.MAX));
+  for (const [name, type] of Object.entries(outputs)) {
+    request.output(name, type);
+  }
+
+  const result = await request.execute(procedureName);
+  const errorMessage = result.output.Error;
+  if (typeof errorMessage === 'string' && errorMessage.length > 0) {
+    throw new Error(`${procedureName}: ${errorMessage}`);
+  }
+  return result.output;
+}
+
 export interface PagedResult<T> {
   results: T[];
   returned: number;

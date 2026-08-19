@@ -186,6 +186,8 @@ if ([string]::IsNullOrWhiteSpace($dbInstance)) {
 
 $trustCert = Read-YesNo "Does the SQL Server use a self-signed certificate? (say yes if the connection test below fails with a certificate error)" $false
 
+$enableWrites = Read-YesNo "Enable write operations? (leave disabled unless you specifically need write-capable tools)" $false
+
 $env:ODCANIT_DB_HOST = $dbHost
 $env:ODCANIT_DB_NAME = $dbName
 $env:ODCANIT_DB_USER = $dbUser
@@ -200,6 +202,11 @@ if ($trustCert) {
     $env:ODCANIT_DB_TRUST_CERT = "true"
 } else {
     $env:ODCANIT_DB_TRUST_CERT = $null
+}
+if ($enableWrites) {
+    $env:ODCANIT_DB_ENABLE_WRITES = "true"
+} else {
+    $env:ODCANIT_DB_ENABLE_WRITES = $null
 }
 
 # 3. Test the connection
@@ -254,6 +261,9 @@ if ($dbInstance) {
 }
 if ($trustCert) {
     $envEntry | Add-Member -MemberType NoteProperty -Name 'ODCANIT_DB_TRUST_CERT' -Value 'true'
+}
+if ($enableWrites) {
+    $envEntry | Add-Member -MemberType NoteProperty -Name 'ODCANIT_DB_ENABLE_WRITES' -Value 'true'
 }
 
 $odcanitEntry = [PSCustomObject]@{
