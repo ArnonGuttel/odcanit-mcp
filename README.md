@@ -4,7 +4,7 @@ An open-source [Model Context Protocol](https://modelcontextprotocol.io/) server
 
 ## Status
 
-MVP, read-only, 9 tools:
+9 read-only tools + 4 opt-in write tools:
 
 | Tool | Looks up | Source view |
 | --- | --- | --- |
@@ -48,6 +48,19 @@ MVP, read-only, 9 tools:
 | --- | --- |
 | `absences` | Leave/absence entries for the user |
 | `hourly_rates` | Hourly billing rate history for the user |
+
+### Write tools (opt-in)
+
+Disabled by default — set `ODCANIT_DB_ENABLE_WRITES=true` to turn them on (see [Configuration](#configuration)). Each calls one of Odcanit's `Klita_Interface_*` data-ingestion stored procedures.
+
+| Tool | Does | Stored procedure |
+| --- | --- | --- |
+| `create_or_update_case` | Creates a case, or updates one by `tikCounter` | `Klita_Interface_TikDetails` |
+| `create_or_update_billing_charge` | Creates a billing charge, or replaces one by `billingCounterForUpdate` | `Klita_Interface_BillingDetails` |
+| `create_document` | Creates a document record on a case and copies the file itself to the path Odcanit assigns it | `Klita_Interface_DocDetails` |
+| `create_attachment` | Creates an attachment/appendix record on a case | `Klita_Interface_NispahDetails` |
+
+`create_document` needs the MCP server process to have filesystem access to Odcanit's document store to copy the file there.
 
 ## How it works
 
@@ -102,6 +115,7 @@ export ODCANIT_DB_PASSWORD="your-password"
 export ODCANIT_DB_PORT="1433"
 export ODCANIT_DB_ENCRYPT="true"
 export ODCANIT_DB_TRUST_CERT="false"
+export ODCANIT_DB_ENABLE_WRITES="false"
 ```
 
 If your server is a named instance (written as `HOST\instance`), set `ODCANIT_DB_INSTANCE` to the instance name instead of a port — the port is resolved dynamically via the SQL Server Browser service (UDP 1434), so `ODCANIT_DB_INSTANCE` and `ODCANIT_DB_PORT` are mutually exclusive:

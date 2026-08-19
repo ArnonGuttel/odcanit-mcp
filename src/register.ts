@@ -1,4 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import sql from 'mssql';
+import { readFile, writeFile } from 'node:fs/promises';
 import {
   getCaseDetailsTool,
   getClientDetailsTool,
@@ -11,8 +13,12 @@ import {
   getUserDataTool,
   getRegisteredBusinessTool,
   getCourtTool,
+  createOrUpdateCaseTool,
+  createOrUpdateBillingChargeTool,
+  createDocumentTool,
+  createAttachmentTool,
 } from './tools.js';
-import { queryOdcanit, queryOdcanitPage } from './db.js';
+import { queryOdcanit, queryOdcanitPage, executeOdcanitProcedure } from './db.js';
 import { Case, Client, InvoicePaymentLink, OdcanitUser, RegisteredBusiness, Court } from './types.js';
 
 const CASE_DATA_QUERIES: Record<(typeof CASE_DATASETS)[number], string> = {
@@ -200,6 +206,166 @@ export function registerTools(server: McpServer) {
     );
     return {
       content: [{ type: 'text', text: JSON.stringify(rows[0] ?? null) }],
+    };
+  });
+
+  server.registerTool(
+    'create_or_update_case',
+    createOrUpdateCaseTool,
+    async ({
+      tikCounter,
+      clientNum,
+      tikNum,
+      tiuk,
+      openDate,
+      tikName,
+      tikTypeName,
+      tikOwner,
+      tikStage,
+      tikNotes,
+      tikStatus,
+      tiukUserName,
+      additional,
+      courtCodeCounter,
+      psakDinDate,
+      globalCourtNum,
+      closeReason,
+      judge,
+    }) => {
+      const output = await executeOdcanitProcedure(
+        'Klita_Interface_TikDetails',
+        {
+          ClientNum: { type: sql.VarChar(20), value: clientNum ?? null },
+          TikNum: { type: sql.Int, value: tikNum ?? null },
+          Tiuk: { type: sql.VarChar(200), value: tiuk ?? null },
+          OpenDate: { type: sql.DateTime, value: openDate ?? null },
+          TikName: { type: sql.VarChar(200), value: tikName ?? null },
+          TikTypeName: { type: sql.VarChar(100), value: tikTypeName ?? null },
+          TikOwner: { type: sql.VarChar(60), value: tikOwner ?? null },
+          TikStage: { type: sql.VarChar(100), value: tikStage ?? null },
+          TikNotes: { type: sql.VarChar(sql.MAX), value: tikNotes ?? null },
+          TikStatus: { type: sql.VarChar(100), value: tikStatus ?? null },
+          TiukUserName: { type: sql.VarChar(50), value: tiukUserName ?? null },
+          TikCounter: { type: sql.Int, value: tikCounter ?? null },
+          Additional: { type: sql.VarChar(200), value: additional ?? null },
+          CourtCodeCounter: { type: sql.Int, value: courtCodeCounter ?? null },
+          PsakDinDate: { type: sql.DateTime, value: psakDinDate ?? null },
+          GlobalCourtNum: { type: sql.VarChar(25), value: globalCourtNum ?? null },
+          CloseReason: { type: sql.VarChar(1000), value: closeReason ?? null },
+          Judge: { type: sql.VarChar(50), value: judge ?? null },
+        },
+        { NewTikvisualID: sql.VarChar(sql.MAX) }
+      );
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ newTikVisualID: output.NewTikvisualID ?? null }) }],
+      };
+    }
+  );
+
+  server.registerTool(
+    'create_or_update_billing_charge',
+    createOrUpdateBillingChargeTool,
+    async ({
+      tikVisualID,
+      billDate,
+      workerName,
+      actDisplayID,
+      billDescription,
+      unit,
+      categoryName,
+      unitCount,
+      unitPrice,
+      isVat,
+      discountAmount,
+      workHours,
+      reference,
+      isRetainer,
+      noCharge,
+      calcDetailsFromAgreements,
+      billingCounterForUpdate,
+    }) => {
+      const toTinyInt = (value: boolean | undefined) => (value === undefined ? null : value ? 1 : 0);
+      const output = await executeOdcanitProcedure(
+        'Klita_Interface_BillingDetails',
+        {
+          TikVisualID: { type: sql.VarChar(50), value: tikVisualID },
+          BillDate: { type: sql.DateTime, value: billDate },
+          WorkerName: { type: sql.VarChar(100), value: workerName },
+          ActDisplayID: { type: sql.Int, value: actDisplayID },
+          BillDescription: { type: sql.VarChar(8000), value: billDescription },
+          Unit: { type: sql.VarChar(50), value: unit },
+          CategoryName: { type: sql.VarChar(50), value: categoryName },
+          UnitCount: { type: sql.Float, value: unitCount ?? null },
+          UnitPrice: { type: sql.Float, value: unitPrice ?? null },
+          IsVat: { type: sql.TinyInt, value: toTinyInt(isVat) },
+          DiscountAmount: { type: sql.Float, value: discountAmount ?? null },
+          WorkHours: { type: sql.Float, value: workHours ?? null },
+          Reference: { type: sql.VarChar(100), value: reference ?? null },
+          IsRetainer: { type: sql.TinyInt, value: toTinyInt(isRetainer) },
+          NoCharge: { type: sql.TinyInt, value: toTinyInt(noCharge) },
+          CalcDetailsFromAgreements: { type: sql.TinyInt, value: toTinyInt(calcDetailsFromAgreements) },
+          BillingCounterForUpdate: { type: sql.Int, value: billingCounterForUpdate ?? null },
+        },
+        { NewBillingCounter: sql.Int }
+      );
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ newBillingCounter: output.NewBillingCounter ?? null }) }],
+      };
+    }
+  );
+
+  server.registerTool(
+    'create_document',
+    createDocumentTool,
+    async ({
+      tikVisualID,
+      docName,
+      fileExt,
+      writerName,
+      summary,
+      category,
+      subCategory,
+      createDate,
+      sourceFilePath,
+      fileContentBase64,
+    }) => {
+      if (Boolean(sourceFilePath) === Boolean(fileContentBase64)) {
+        throw new Error('Provide exactly one of sourceFilePath or fileContentBase64.');
+      }
+      const fileBytes = sourceFilePath ? await readFile(sourceFilePath) : Buffer.from(fileContentBase64!, 'base64');
+
+      const output = await executeOdcanitProcedure(
+        'Klita_Interface_DocDetails',
+        {
+          TikVisualID: { type: sql.VarChar(50), value: tikVisualID },
+          DocName: { type: sql.VarChar(200), value: docName },
+          FileExt: { type: sql.VarChar(20), value: fileExt },
+          summary: { type: sql.VarChar(5000), value: summary ?? null },
+          Category: { type: sql.VarChar(50), value: category ?? null },
+          SubCategory: { type: sql.VarChar(100), value: subCategory ?? null },
+          CreateDate: { type: sql.DateTime, value: createDate ?? null },
+          WriterName: { type: sql.VarChar(100), value: writerName },
+        },
+        { Path: sql.VarChar(sql.MAX) }
+      );
+
+      const path = output.Path as string;
+      await writeFile(path, fileBytes);
+
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ path }) }],
+      };
+    }
+  );
+
+  server.registerTool('create_attachment', createAttachmentTool, async ({ tikVisualID, info, nispahTypeName }) => {
+    await executeOdcanitProcedure('Klita_Interface_NispahDetails', {
+      TikVisualID: { type: sql.VarChar(50), value: tikVisualID },
+      Info: { type: sql.VarChar(sql.MAX), value: info ?? null },
+      NispahTypeName: { type: sql.VarChar(50), value: nispahTypeName ?? null },
+    });
+    return {
+      content: [{ type: 'text', text: JSON.stringify({ success: true }) }],
     };
   });
 }
