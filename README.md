@@ -160,8 +160,8 @@ npm start       # run the built server directly (dist/index.js)
 
 ## Contributing
 
-Contributions are welcome — feel free to open a Pull Request.
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for how to get set up and submit a Pull Request.
 
 ## License
 
-MIT
+[MIT](LICENSE)
