@@ -24,13 +24,13 @@ npm start           # run the built server (node dist/index.js)
 npm run build:exe    # bundle + package a standalone Windows dist-bin/odcanit-mcp.exe (no Node.js needed to run it)
 ```
 
-There is no test suite and no lint script configured. `scripts/test-connection.mjs` is a manual DB connectivity check for source builds — it imports from `../dist/db.js`, so run `npm run build` first, then:
+There is no test suite and no lint script configured. `index.ts` handles a `--test-connection` flag as a manual DB connectivity check (see Architecture below): it runs a `SELECT 1` via `getPool()` and exits 0/1, printing `OK` on success or the error on failure. For a source build, run `npm run build` first, then:
 
 ```bash
-node scripts/test-connection.mjs
+node dist/index.js --test-connection
 ```
 
-It exits 0 and prints `OK` on a successful connection, otherwise prints the error and exits 1. The compiled binary has the equivalent built in as a flag: `dist-bin/odcanit-mcp.exe --test-connection` (also handled by `index.ts`, see Architecture below) — this is what `setup-windows.ps1` uses, since a machine running only the `.exe` has no Node.js to run `test-connection.mjs` with.
+The packaged binary exposes the same flag (`dist-bin/odcanit-mcp.exe --test-connection`) — this is what `setup-windows.ps1` uses, since a machine running only the `.exe` has no Node.js to run the source build with.
 
 Windows firms have an interactive one-shot setup that prompts for SQL Server credentials, tests the connection via the `.exe`, and registers the server in Claude Desktop's config — no Node.js required on the machine running it:
 
