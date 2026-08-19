@@ -3,6 +3,13 @@ import { z } from 'zod';
 // MVP read-only tool definitions for Odcanit MCP
 // Backed by the read-only export views (vwExportToOuterSystems_*)
 
+// Shared by every paginated list/search tool — one definition for the limit/offset
+// contract so it stays consistent (and the cap stays enforced) across tools.
+export const paginationSchema = {
+  limit: z.number().int().min(1).max(100).default(25).describe('Max rows to return (default 25, max 100)'),
+  offset: z.number().int().min(0).default(0).describe('Rows to skip, for paging past the first `limit` results'),
+};
+
 export const getCaseDetailsTool = {
   description: 'Get details for a specific case from vwExportToOuterSystems_Files (read-only)',
   inputSchema: {
@@ -14,6 +21,35 @@ export const getClientDetailsTool = {
   description: 'Get details for a specific client from vwExportToOuterSystems_Clients (read-only)',
   inputSchema: {
     visualID: z.string().describe('Client visual ID (VisualID)'),
+  },
+};
+
+export const listCasesTool = {
+  description:
+    'List cases from vwExportToOuterSystems_Files (read-only), optionally filtered by status, client, ' +
+    'type, owner, or create/modify date range. Returns at most `limit` results (default 25, max 100) ' +
+    'plus whether more match — pass `offset` or narrow the filters to page through the rest.',
+  inputSchema: {
+    status: z
+      .string()
+      .optional()
+      .describe('Filter by exact case status (StatusName) — omit to list cases in any status'),
+    clientVisualID: z
+      .string()
+      .optional()
+      .describe('Filter by exact client visual ID (ClientVisualID)'),
+    clientName: z
+      .string()
+      .optional()
+      .describe('Filter by client name (ClientName), partial match'),
+    tikName: z.string().optional().describe('Filter by case name (TikName), partial match'),
+    tikType: z.string().optional().describe('Filter by exact case type (TikType)'),
+    tikOwner: z.number().optional().describe('Filter by exact case owner user ID (TikOwner)'),
+    createdFrom: z.coerce.date().optional().describe('Only cases created on or after this date (TsCreateDate)'),
+    createdTo: z.coerce.date().optional().describe('Only cases created on or before this date (TsCreateDate)'),
+    modifiedFrom: z.coerce.date().optional().describe('Only cases modified on or after this date (TsModifyDate)'),
+    modifiedTo: z.coerce.date().optional().describe('Only cases modified on or before this date (TsModifyDate)'),
+    ...paginationSchema,
   },
 };
 
@@ -59,14 +95,6 @@ export const getInvoicePaymentLinksTool = {
   },
 };
 
-export const getEmployeeAbsencesTool = {
-  description:
-    'List absence entries for a specific staff member, from vwExportToOuterSystems_EmployeeAbsenceList (read-only)',
-  inputSchema: {
-    userID: z.number().describe('Staff user ID (UserID)'),
-  },
-};
-
 export const getUserDetailsTool = {
   description: 'Get details for a specific firm user, from vwExportToOuterSystems_LoginUsers (read-only)',
   inputSchema: {
@@ -74,11 +102,15 @@ export const getUserDetailsTool = {
   },
 };
 
-export const getUserHourlyRatesTool = {
+export const USER_DATASETS = ['absences', 'hourly_rates'] as const;
+
+export const getUserDataTool = {
   description:
-    'List hourly billing rate history for a specific user, from vwExportToOuterSystems_HourlyUserPrices (read-only)',
+    'Get one dataset scoped to a specific user (read-only). `dataset` selects what to fetch: ' +
+    'absences (leave/absence entries), hourly_rates (hourly billing rate history).',
   inputSchema: {
     userID: z.number().describe('User ID (UserID)'),
+    dataset: z.enum(USER_DATASETS).describe('Which user-scoped dataset to fetch'),
   },
 };
 

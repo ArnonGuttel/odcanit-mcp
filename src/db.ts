@@ -64,3 +64,38 @@ export async function queryOdcanit<T>(query: string, params: Record<string, unkn
   const result = await request.query<T>(query);
   return result.recordset;
 }
+
+export interface PagedResult<T> {
+  results: T[];
+  returned: number;
+  hasMore: boolean;
+}
+
+/**
+ * Runs a paginated query. `queryWithOrderBy` must be a complete SELECT ending in
+ * ORDER BY (required by SQL Server's OFFSET/FETCH) with no OFFSET/FETCH of its own —
+ * this appends that. Fetches one extra row beyond `limit` to derive `hasMore` without
+ * a separate COUNT(*) round-trip.
+ */
+export async function queryOdcanitPage<T>(
+  queryWithOrderBy: string,
+  params: Record<string, unknown>,
+  { limit, offset }: { limit: number; offset: number }
+): Promise<PagedResult<T>> {
+  const connection = await getPool();
+  const request = connection.request();
+
+  for (const [key, value] of Object.entries(params)) {
+    request.input(key, value);
+  }
+  request.input('__offset', offset);
+  request.input('__fetch', limit + 1);
+
+  const result = await request.query<T>(
+    `${queryWithOrderBy} OFFSET @__offset ROWS FETCH NEXT @__fetch ROWS ONLY`
+  );
+  const rows = result.recordset;
+  const hasMore = rows.length > limit;
+  const results = hasMore ? rows.slice(0, limit) : rows;
+  return { results, returned: results.length, hasMore };
+}

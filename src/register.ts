@@ -2,26 +2,18 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import {
   getCaseDetailsTool,
   getClientDetailsTool,
+  listCasesTool,
   CASE_DATASETS,
   getCaseDataTool,
   getInvoicePaymentLinksTool,
-  getEmployeeAbsencesTool,
   getUserDetailsTool,
-  getUserHourlyRatesTool,
+  USER_DATASETS,
+  getUserDataTool,
   getRegisteredBusinessTool,
   getCourtTool,
 } from './tools.js';
-import { queryOdcanit } from './db.js';
-import {
-  Case,
-  Client,
-  InvoicePaymentLink,
-  EmployeeAbsence,
-  OdcanitUser,
-  UserHourlyRate,
-  RegisteredBusiness,
-  Court,
-} from './types.js';
+import { queryOdcanit, queryOdcanitPage } from './db.js';
+import { Case, Client, InvoicePaymentLink, OdcanitUser, RegisteredBusiness, Court } from './types.js';
 
 const CASE_DATA_QUERIES: Record<(typeof CASE_DATASETS)[number], string> = {
   handlers: 'SELECT * FROM vwExportToOuterSystems_TikMetaplim WHERE TikNumber = @tikNumber',
@@ -61,6 +53,11 @@ const CASE_DATA_QUERIES: Record<(typeof CASE_DATASETS)[number], string> = {
      WHERE f.TikNumber = @tikNumber`,
 };
 
+const USER_DATA_QUERIES: Record<(typeof USER_DATASETS)[number], string> = {
+  absences: 'SELECT * FROM vwExportToOuterSystems_EmployeeAbsenceList WHERE UserID = @userID',
+  hourly_rates: 'SELECT * FROM vwExportToOuterSystems_HourlyUserPrices WHERE UserID = @userID',
+};
+
 export function registerTools(server: McpServer) {
   server.registerTool('get_case_details', getCaseDetailsTool, async ({ tikNumber }) => {
     const rows = await queryOdcanit<Case>(
@@ -82,6 +79,76 @@ export function registerTools(server: McpServer) {
     };
   });
 
+  server.registerTool(
+    'list_cases',
+    listCasesTool,
+    async ({
+      status,
+      clientVisualID,
+      clientName,
+      tikName,
+      tikType,
+      tikOwner,
+      createdFrom,
+      createdTo,
+      modifiedFrom,
+      modifiedTo,
+      limit,
+      offset,
+    }) => {
+      const conditions: string[] = [];
+      const params: Record<string, unknown> = {};
+
+      if (status !== undefined) {
+        conditions.push('StatusName = @status');
+        params.status = status;
+      }
+      if (clientVisualID !== undefined) {
+        conditions.push('ClientVisualID = @clientVisualID');
+        params.clientVisualID = clientVisualID;
+      }
+      if (clientName !== undefined) {
+        conditions.push('ClientName LIKE @clientName');
+        params.clientName = `%${clientName}%`;
+      }
+      if (tikName !== undefined) {
+        conditions.push('TikName LIKE @tikName');
+        params.tikName = `%${tikName}%`;
+      }
+      if (tikType !== undefined) {
+        conditions.push('TikType = @tikType');
+        params.tikType = tikType;
+      }
+      if (tikOwner !== undefined) {
+        conditions.push('TikOwner = @tikOwner');
+        params.tikOwner = tikOwner;
+      }
+      if (createdFrom !== undefined) {
+        conditions.push('TsCreateDate >= @createdFrom');
+        params.createdFrom = createdFrom;
+      }
+      if (createdTo !== undefined) {
+        conditions.push('TsCreateDate <= @createdTo');
+        params.createdTo = createdTo;
+      }
+      if (modifiedFrom !== undefined) {
+        conditions.push('TsModifyDate >= @modifiedFrom');
+        params.modifiedFrom = modifiedFrom;
+      }
+      if (modifiedTo !== undefined) {
+        conditions.push('TsModifyDate <= @modifiedTo');
+        params.modifiedTo = modifiedTo;
+      }
+
+      const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+      const query = `SELECT * FROM vwExportToOuterSystems_Files ${where} ORDER BY TikNumber`;
+      const page = await queryOdcanitPage<Case>(query, params, { limit, offset });
+      return {
+        content: [{ type: 'text', text: JSON.stringify(page) }],
+      };
+    }
+  );
+
   server.registerTool('get_case_data', getCaseDataTool, async ({ tikNumber, dataset }) => {
     const rows = await queryOdcanit<Record<string, unknown>>(CASE_DATA_QUERIES[dataset], { tikNumber });
     return {
@@ -99,16 +166,6 @@ export function registerTools(server: McpServer) {
     };
   });
 
-  server.registerTool('get_employee_absences', getEmployeeAbsencesTool, async ({ userID }) => {
-    const rows = await queryOdcanit<EmployeeAbsence>(
-      'SELECT * FROM vwExportToOuterSystems_EmployeeAbsenceList WHERE UserID = @userID',
-      { userID }
-    );
-    return {
-      content: [{ type: 'text', text: JSON.stringify(rows) }],
-    };
-  });
-
   server.registerTool('get_user_details', getUserDetailsTool, async ({ userID }) => {
     const rows = await queryOdcanit<OdcanitUser>(
       'SELECT * FROM vwExportToOuterSystems_LoginUsers WHERE UserID = @userID',
@@ -119,11 +176,8 @@ export function registerTools(server: McpServer) {
     };
   });
 
-  server.registerTool('get_user_hourly_rates', getUserHourlyRatesTool, async ({ userID }) => {
-    const rows = await queryOdcanit<UserHourlyRate>(
-      'SELECT * FROM vwExportToOuterSystems_HourlyUserPrices WHERE UserID = @userID',
-      { userID }
-    );
+  server.registerTool('get_user_data', getUserDataTool, async ({ userID, dataset }) => {
+    const rows = await queryOdcanit<Record<string, unknown>>(USER_DATA_QUERIES[dataset], { userID });
     return {
       content: [{ type: 'text', text: JSON.stringify(rows) }],
     };
