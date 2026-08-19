@@ -138,7 +138,11 @@ The Windows setup above handles this for you. Building from source, add an entry
         "ODCANIT_DB_HOST": "your-sql-server-host",
         "ODCANIT_DB_NAME": "your-database-name",
         "ODCANIT_DB_USER": "your-username",
-        "ODCANIT_DB_PASSWORD": "your-password"
+        "ODCANIT_DB_PASSWORD": "your-password",
+        "ODCANIT_DB_PORT": "1433",
+        "ODCANIT_DB_ENCRYPT": "true",
+        "ODCANIT_DB_TRUST_CERT": "false",
+        "ODCANIT_DB_ENABLE_WRITES": "false"
       }
     }
   }
